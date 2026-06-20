@@ -1,0 +1,7 @@
+{
+    "name": "Python 3",
+    "image": "mcr.microsoft.com/vscode/devcontainers/python:3.8",
+    "postCreateCommand": "bash .devcontainer/post-create.sh",
+    "extensions": ["ms-python.python"],
+	"settings": {"terminal.integrated.shell.linux": "/bin/bash"}
+}

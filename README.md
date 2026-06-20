@@ -16,6 +16,8 @@ $ pip install -r requirements.txt
 # And use it executing the main.py
 $ python main.py
 ```
+Or use it online (you gotta be logged) -> <br>
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?repo=tteletubie/final-temporal/)
 
 ## Database Schema:
 <img src="resources/schema.jpeg" alt="Schema" width="650">
