@@ -1,15 +1,19 @@
+# 1. Standard Libraries
 import signal
 import sys
 import termios
 import tty
-import visual
+
+# 2. Third-Party Libraries
+from rich.align import Align
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
+
+# 3. Local Modules
+import visual
 from login import login_u
 from visual import UserCancelledError, show_cancelled_panel
-from rich.align import Align
-
 
 console = Console()
 
@@ -66,7 +70,6 @@ def draw_menu(title: str, options: list[str], color: str, selected: int) -> None
     print("\033c")
     visual.big_title("BOOKWORMS")
 
-
     table = Table(show_header=False, box=None, expand=True, pad_edge=False)
     table.add_column(ratio=1)
 
@@ -99,41 +102,25 @@ def read_key() -> str:
     try:
         tty.setraw(fd)
         char = sys.stdin.read(1)
-        if char == "\x03":
-            raise UserCancelledError()
+        if char == "\x03":raise UserCancelledError()
         if char == "\x1b":
             seq = sys.stdin.read(2)
-            if seq == "[A":
-                return "UP"
-            if seq == "[B":
-                return "DOWN"
+            if seq == "[A": return "UP"
+            if seq == "[B": return "DOWN"
             return "OTHER"
 
-        if char in ("\r", "\n"):
-            return "ENTER"
-        if char in ("q", "Q"):
-            return "QUIT"
-        if char in ("b", "B"):
-            return "BACK"
+        if char in ("\r", "\n"): return "ENTER"
+        if char in ("q", "Q"): return "QUIT"
+        if char in ("b", "B"): return "BACK"
         return "OTHER"
-
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 
 def show_placeholder(topic: str) -> None:
     print("\033c")
-
-    console.print(
-        Panel.fit(
-            f"[bold]Selected:[/bold] {topic}\n\nPlaceholder: ....",
-            title="Topic",
-            border_style="green"
-        )
-    )
-
+    console.print(Panel.fit(f"[bold]Selected:[/bold] {topic}\n\nPlaceholder: ....", title="Topic", border_style="green"))
     console.print("Press any key to return...")
-
     read_key()
 
 
@@ -143,72 +130,49 @@ def run_menu() -> None:
     current_group = 0
 
     while True:
-
         if view == "groups":
-
             group_options = [g["name"] for g in MENUBOOKS] + ["◄ Exit"]
-
             draw_menu(" MENU ", group_options, "blue", selected)
-
             key = read_key()
 
-            if key == "QUIT":
-                break
-
-            if key == "UP":
-                selected = (selected - 1) % len(group_options)
-
-            elif key == "DOWN":
-                selected = (selected + 1) % len(group_options)
-
+            if key == "QUIT": break
+            if key == "UP": selected = (selected - 1) % len(group_options)
+            elif key == "DOWN": selected = (selected + 1) % len(group_options)
             elif key == "ENTER":
-
-                if selected == len(group_options) - 1:
-                    break
-
+                if selected == len(group_options) - 1: break
                 current_group = selected
                 selected = 0
                 view = "topics"
-
         else:
             
             topics = MENUBOOKS[current_group]["topics"]
             topic_options = topics + ["← Back"]
             color = MENUBOOKS[current_group]["color"]
-            
             draw_menu(MENUBOOKS[current_group]["name"], topic_options, color, selected)
-
             key = read_key()
 
-            if key == "QUIT":
-                break
-            if key == "UP":
-                selected = (selected - 1) % len(topic_options)
-            elif key == "DOWN":
-                selected = (selected + 1) % len(topic_options)
+            if key == "QUIT": break
+            if key == "UP": selected = (selected - 1) % len(topic_options)
+            elif key == "DOWN": selected = (selected + 1) % len(topic_options)
             elif key == "BACK":
                 selected = 0
                 view = "groups"
             elif key == "ENTER":
                 if selected == len(topic_options) - 1:
-
                     selected = 0
                     view = "groups"
+                """ else:
+                    topic_name = topics[selected]
+                    topic_handler = TOPIC_HANDLERS.get(topic_name)
+                    if topic_handler is not None:
+                        topic_handler(console, read_key)
+                    else:
+                        show_placeholder(topic_name)"""
 
-                # else:
-                #     topic_name = topics[selected]
-                #     topic_handler = TOPIC_HANDLERS.get(topic_name)
-                #
-                #     if topic_handler is not None:
-                #         topic_handler(console, read_key)
-                #     else:
-                #         show_placeholder(topic_name)
 
 
 def main() -> None:
-    
-   # print("\033c")
-
+    # print("\033c")
     #role, user = login_u()
     run_menu()
 
@@ -216,7 +180,6 @@ def main() -> None:
     visual.big_title("BOOKWORMS")
 
     console.print(Align.center(Panel("¡THANK YOU FOR USING WORMBOOKS!", border_style="#01796F")))
-
     input()
 
 

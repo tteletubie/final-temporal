@@ -1,8 +1,7 @@
-from visual import show_login
 import visual
+from visual import show_login
 
 def login_u():
-
     while True:
         show_login()
 

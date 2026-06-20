@@ -75,6 +75,3 @@ def show_topic_panel(console: Console, read_key: Callable[[], str], topic: str) 
     console.print(Panel.fit(message, title="Topic", border_style="green"))
     console.print("Press any key to return...")
     read_key()
-
-
-
