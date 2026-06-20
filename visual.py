@@ -10,9 +10,6 @@ from rich.panel import Panel
 from pyfiglet import figlet_format
 
 # 3. Local Modules
-import visual
-from login import login_u
-from visual import UserCancelledError, show_cancelled_panel
 # Create console instance
 console = Console()
 
