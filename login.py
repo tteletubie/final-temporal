@@ -1,9 +1,8 @@
 import visual
-from visual import show_login
 
 def login_u():
     while True:
-        show_login()
+        visual.show_login()
 
         name = visual.enter("Name")
         lastname = visual.enter("Lastname")

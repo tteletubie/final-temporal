@@ -1,11 +1,19 @@
+# 1. Standard Libraries
 from datetime import datetime
+from typing import Callable
+
+# 2. Third-Party Libraries
+from rich.console import Console
+from rich.align import Align
 from rich import print
 from rich.panel import Panel
 from pyfiglet import figlet_format
-from rich.align import Align
-from rich.console import Console
-from typing import Callable
 
+# 3. Local Modules
+import visual
+from login import login_u
+from visual import UserCancelledError, show_cancelled_panel
+# Create console instance
 console = Console()
 
 def show_login():

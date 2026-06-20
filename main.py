@@ -3,6 +3,7 @@ import signal
 import sys
 import termios
 import tty
+import select
 
 # 2. Third-Party Libraries
 from rich.align import Align
@@ -14,7 +15,7 @@ from rich.table import Table
 import visual
 from login import login_u
 from visual import UserCancelledError, show_cancelled_panel
-
+# Create console instance
 console = Console()
 
 
@@ -23,68 +24,55 @@ def handle_sigint(signum, frame) -> None:
 
 MENUBOOKS = [
     {
-        "name": "Login / Sing In",
-        "topics": [
-            "Login",
-            "Sing Up"
-        ],
+        "name": "Login / Sign In",
+        "topics": [ "Login", "Sign Up"],
         "color": "green"
     },
     {
         "name": " Books ",
-        "topics": [
-            "Titles",
-            "Categories",
-        ],
+        "topics": ["Titles", "Categories"],
         "color": "green"
     },
     {
         "name": "Registers",
-        "topics": [
-            "Users",
-            "Admins",
-        ],
+        "topics": ["Users", "Admins"],
         "color": "green"
     },
     {
         "name": "Services",
-        "topics": [
-            "Historial",
-            "Due Dates",
-        ],
+        "topics": ["Historial", "Due Dates"],
         "color": "green"
     },
     {
         "name": "Offences",
-        "topics": [
-            "Type",
-            "Historial",
-            "Learn more about offences",
-        ],
+        "topics": ["Type", "Historial", "Learn more about offences"],
         "color": "green"
     },
 ]
 
 
 def draw_menu(title: str, options: list[str], color: str, selected: int) -> None:
-    print("\033c")
+    console.clear()
     visual.big_title("BOOKWORMS")
 
     table = Table(show_header=False, box=None, expand=True, pad_edge=False)
     table.add_column(ratio=1)
 
-    for idx, opt in enumerate(options):
-        if idx == selected:
-            table.add_row("")
-            table.add_row(f"[bold black on {color}]>               {opt}               [/]")
-        else:
-            table.add_row("")
-            table.add_row(f"                   {opt}                  ")
+    updated_options = [MENUBOOKS[0]["name"] if opt == MENUBOOKS[0]["name"] else opt for opt in options]
+
+    # 2. Calculation
+    longest_opt_len = max(len(opt) for opt in updated_options)
+    total_width = longest_opt_len + 40
+
+    for idx, opt in enumerate(updated_options):
+        if idx > 0: table.add_row("")
+
+        if idx == selected: table.add_row(f"[bold black on {color}]{opt:^{total_width}}[/]")
+        else: table.add_row(f"{opt:^{total_width}}")
 
     help_text = "Use Up/Down arrows and Enter to select. Press q to exit."
     panel = Panel.fit(table, title=f"[bold #00FFB3]{title}[/bold #00FFB3]", subtitle=help_text, border_style="#00FFB3", width=70, padding=(1, 4))
     console.print(Align.center(panel))
-
 
 
 def read_key() -> str:
@@ -118,7 +106,7 @@ def read_key() -> str:
 
 
 def show_placeholder(topic: str) -> None:
-    print("\033c")
+    console.clear()
     console.print(Panel.fit(f"[bold]Selected:[/bold] {topic}\n\nPlaceholder: ....", title="Topic", border_style="green"))
     console.print("Press any key to return...")
     read_key()
@@ -132,7 +120,7 @@ def run_menu() -> None:
     while True:
         if view == "groups":
             group_options = [g["name"] for g in MENUBOOKS] + ["◄ Exit"]
-            draw_menu(" MENU ", group_options, "blue", selected)
+            draw_menu("🐛 MENU 🐛", group_options, "blue", selected)
             key = read_key()
 
             if key == "QUIT": break
@@ -172,15 +160,18 @@ def run_menu() -> None:
 
 
 def main() -> None:
-    # print("\033c")
     #role, user = login_u()
     run_menu()
 
-    print("\033c")
+    console.clear()
     visual.big_title("BOOKWORMS")
 
-    console.print(Align.center(Panel("¡THANK YOU FOR USING WORMBOOKS!", border_style="#01796F")))
-    input()
+    # Exit code
+    console.print(Align.center(Panel("📖 ¡THANK YOU FOR USING WORMBOOKS! 📖", border_style="#01796F")))
+    console.print(Align.center("[dim]Press Enter or wait 5s to exit...[/dim]"))
+    tty.setcbreak(sys.stdin.fileno())
+    select.select([sys.stdin], [], [], 5)
+
 
 
 if __name__ == "__main__":

@@ -1,12 +1,19 @@
+# 1. Standard Libraries
 import signal
 import sys
 import termios
 import tty
-import visual
+
+# 2. Third-Party Libraries
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+
+# 3. Local Modules
+import visual
+from login import login_u
 from visual import UserCancelledError, show_cancelled_panel
+# Create console instance
 console = Console()
 
 
