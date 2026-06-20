@@ -4,6 +4,7 @@ import sys
 import termios
 import tty
 import select
+from typing import List
 
 # 2. Third-Party Libraries
 from rich.align import Align
@@ -51,7 +52,7 @@ MENUBOOKS = [
 ]
 
 
-def draw_menu(title: str, options: list[str], color: str, selected: int) -> None:
+def draw_menu(title: str, options: List[str], color: str, selected: int) -> None:
     console.clear()
     visual.big_title("BOOKWORMS")
 

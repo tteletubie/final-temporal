@@ -3,6 +3,7 @@ import signal
 import sys
 import termios
 import tty
+from typing import List
 
 # 2. Third-Party Libraries
 from rich.console import Console
@@ -31,7 +32,7 @@ MENUBOOKS = [
     },
 ]
 
-def draw_menu(title: str, options: list[str], color: str, selected: int) -> None:
+def draw_menu(title: str, options: List[str], color: str, selected: int) -> None:
     console.clear()
     visual.title("MENU")
     table = Table(show_header=False, box=None, expand=True, pad_edge=False)
