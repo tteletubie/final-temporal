@@ -1,6 +1,22 @@
 # BookWorm 🐛📖
 A CLI python library manager
 
+## Installation
+(You need **python** and **pip** installed)
+```bash
+# Create a local enviroment for the installation
+$ python -m venv .venv
+
+# Activate the enviroment
+$ source .venv/bin/activate
+
+# Then install python libraries with pip
+$ pip install -r requirements.txt
+
+# And use it executing the main.py
+$ python main.py
+```
+
 ## Database Schema:
 <img src="resources/schema.jpeg" alt="Schema" width="650">
 
