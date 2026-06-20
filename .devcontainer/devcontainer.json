@@ -4,5 +4,15 @@
     "postCreateCommand": "bash .devcontainer/post-create.sh",
     "postAttachCommand": "source .venv/bin/activate && python main.py",
     "extensions": ["ms-python.python"],
-	"settings": {"terminal.integrated.shell.linux": "/bin/bash"}
+    "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash",
+        "workbench.startupEditor": "none",
+        "workbench.panel.opensMaximized": "never",
+        "workbench.activityBar.visible": false,
+        "workbench.sideBar.visible": false,
+        "workbench.statusBar.visible": false,
+        "terminal": {
+            "default_height": 9999
+        },
+    }
 }
