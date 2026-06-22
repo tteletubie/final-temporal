@@ -31,32 +31,32 @@ def login():
     )
 
     username = visuals.input("Username")
-    password = visuals.input("Password", True)
+    password = visuals.input("Password")
 
     """Validates user credentials against stored hashed values."""
     # password = hash_password(password)
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
         # Parametrized query avoids SQL injection attacks
-        """cursor.execute(
+        cursor.execute(
             "SELECT * FROM users WHERE username = ? AND password = ?",
             (username, password),
         )
-        user = cursor.fetchone()"""
+        user = cursor.fetchone()
 
-        cursor.execute("SELECT * FROM users")
+        """cursor.execute("SELECT * FROM users")
         all_users = cursor.fetchall()
 
         print("--- User Table Data ---")
         for user in all_users:
-            print(user)
+            print(user)"""
 
-        """if user:
+        if user:
             print(" Login successful! Welcome back.")
             return True
         else:
             print(" Invalid username or password.")
-            return False"""
+            return False
     # return username, password
 
 
