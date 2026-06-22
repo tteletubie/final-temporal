@@ -13,7 +13,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 # 3. Local Modules
-from auth.credentials import login, login_u
+from auth import credentials
 from ui import visuals
 # Create console instance
 console = Console()
@@ -152,11 +152,13 @@ def run_menu() -> None:
                 else:
                     topic = topics[selected]
                     if topic == "Login":
-                        username, password = login()
-                        # Here you can add the authentication logic
-                        show_placeholder(f"Attempting to log in as {username}...")
+                        logged_username = credentials.login()
+                        if logged_username:
+                            # Here you can add the authentication logic
+                            show_placeholder(f"Attempting to log in as {logged_username}...")
+                        else: show_placeholder("Login failed. Please try again.")
                     elif topic == "Sign Up":
-                        role, user = login_u()
+                        role, user = credentials.login_u()
                         # Here you can add the user creation logic
                         show_placeholder(f"User {user['username']} created with role {role}")
                     else:

@@ -23,9 +23,9 @@ def big_title(text):
     big = figlet_format(text, font="slant")
     print(Align.center(f"[#00FF7F]{big}[/#00FF7F]"))
 
-def input(text, password: bool = False):
-    console.print(Panel.fit(text,border_style="#01796F"))
-    return console.input(f"[#01796F] ➜ [/#01796F] ", password=password)
+def input(text, field_type="text"):
+    console.print(Panel.fit(text, border_style="#01796F"))
+    return console.input(f"[#01796F] ➜ [/#01796F] ", password=(field_type == "password"))
 
 def input_int(text):
     while True:

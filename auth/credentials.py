@@ -19,45 +19,18 @@ DB_NAME = os.path.normpath(os.path.join(SCRIPT_DIR, "../database/database2.db"))
 
 def login():
     console.clear()
-    console.print(
-        Align.center(
-            Panel(
-                Align.center("[bold green]Enter your credentials[/bold green]"),
-                title="[bold #00FFB3]Login[/bold #00FFB3]",
-                border_style="#00FFB3",
-                width=50,
-            )
-        )
-    )
+    console.print(Align.center(Panel(Align.center("[bold green]Enter your credentials[/bold green]"), title="[bold #00FFB3]Login[/bold #00FFB3]", border_style="#00FFB3", width=50)))
 
     username = visuals.input("Username")
-    password = visuals.input("Password")
+    password = visuals.input("Password", "password")
 
-    """Validates user credentials against stored hashed values."""
     # password = hash_password(password)
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
         # Parametrized query avoids SQL injection attacks
-        cursor.execute(
-            "SELECT * FROM users WHERE username = ? AND password = ?",
-            (username, password),
-        )
+        cursor.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password),)
         user = cursor.fetchone()
-
-        """cursor.execute("SELECT * FROM users")
-        all_users = cursor.fetchall()
-
-        print("--- User Table Data ---")
-        for user in all_users:
-            print(user)"""
-
-        if user:
-            print(" Login successful! Welcome back.")
-            return True
-        else:
-            print(" Invalid username or password.")
-            return False
-    # return username, password
+        return username if user else False
 
 
 def login_u():
