@@ -1,3 +1,8 @@
+# 1. Standard Libraries
+import os
+import hashlib
+import sqlite3
+
 # 2. Third-Party Libraries
 from rich.align import Align
 from rich.console import Console
@@ -5,16 +10,55 @@ from rich.panel import Panel
 
 # 3. Local Modules
 from ui import visuals
+
 console = Console()
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_NAME = os.path.normpath(os.path.join(SCRIPT_DIR, "../database/database2.db"))
+
 
 def login():
     console.clear()
-    console.print(Align.center(Panel(Align.center("[bold green]Enter your credentials[/bold green]"), title="[bold #00FFB3]Login[/bold #00FFB3]", border_style="#00FFB3", width=50)))
+    console.print(
+        Align.center(
+            Panel(
+                Align.center("[bold green]Enter your credentials[/bold green]"),
+                title="[bold #00FFB3]Login[/bold #00FFB3]",
+                border_style="#00FFB3",
+                width=50,
+            )
+        )
+    )
 
     username = visuals.input("Username")
     password = visuals.input("Password", True)
-    
-    return username, password
+
+    """Validates user credentials against stored hashed values."""
+    # password = hash_password(password)
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        # Parametrized query avoids SQL injection attacks
+        """cursor.execute(
+            "SELECT * FROM users WHERE username = ? AND password = ?",
+            (username, password),
+        )
+        user = cursor.fetchone()"""
+
+        cursor.execute("SELECT * FROM users")
+        all_users = cursor.fetchall()
+
+        print("--- User Table Data ---")
+        for user in all_users:
+            print(user)
+
+        """if user:
+            print(" Login successful! Welcome back.")
+            return True
+        else:
+            print(" Invalid username or password.")
+            return False"""
+    # return username, password
+
 
 def login_u():
     while True:
@@ -29,16 +73,17 @@ def login_u():
         offences = visuals.input_int("Offences")
 
         user = {
-        "name": name,
-        "lastname": lastname,
-        "username": username,
-        "password": password,
-        "birth": birth,
-        "job": job,
-        "offences": offences
+            "name": name,
+            "lastname": lastname,
+            "username": username,
+            "password": password,
+            "birth": birth,
+            "job": job,
+            "offences": offences,
         }
 
         return job.lower(), user
+
 
 def logout():
     pass
