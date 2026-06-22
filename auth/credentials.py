@@ -11,8 +11,8 @@ def login():
     console.clear()
     console.print(Align.center(Panel(Align.center("[bold green]Enter your credentials[/bold green]"), title="[bold #00FFB3]Login[/bold #00FFB3]", border_style="#00FFB3", width=50)))
 
-    username = visuals.enter("Username")
-    password = visuals.enter("Password")
+    username = visuals.input("Username")
+    password = visuals.input("Password", True)
     
     return username, password
 
@@ -20,13 +20,13 @@ def login_u():
     while True:
         visuals.show_login()
 
-        name = visuals.enter("Name")
-        lastname = visuals.enter("Lastname")
-        username = visuals.enter("Username")
-        password = visuals.enter("Password")
-        birth = visuals.enter_date("Date of Birth")
-        job = visuals.enter("Role")
-        offences = visuals.enter_int("Offences")
+        name = visuals.input("Name")
+        lastname = visuals.input("Lastname")
+        username = visuals.input("Username")
+        password = visuals.input("Password")
+        birth = visuals.input_date("Date of Birth")
+        job = visuals.input("Role")
+        offences = visuals.input_int("Offences")
 
         user = {
         "name": name,

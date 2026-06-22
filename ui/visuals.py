@@ -23,13 +23,13 @@ def big_title(text):
     big = figlet_format(text, font="slant")
     print(Align.center(f"[#00FF7F]{big}[/#00FF7F]"))
 
-def enter(text):
+def input(text, password: bool = False):
     console.print(Panel.fit(text,border_style="#01796F"))
-    return console.input(f"[#01796F] ➜ [/#01796F] ")
+    return console.input(f"[#01796F] ➜ [/#01796F] ", password=password)
 
-def enter_int(text):
+def input_int(text):
     while True:
-        value = enter(text)
+        value = input(text)
         try:
             return int(value)
         except ValueError:
@@ -39,7 +39,7 @@ def enter_int(text):
 def enter_date(text):
     formats = ["%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%m/%d/%Y"]
     while True:
-        value = enter(text)
+        value = input(text)
         for fmt in formats:
             try:
                 return datetime.strptime(value, fmt).date().isoformat()
