@@ -67,7 +67,7 @@ def draw_menu(title: str, options: List[str], color: str, selected: int) -> None
     for idx, opt in enumerate(updated_options):
         if idx > 0: table.add_row("")
 
-        if idx == selected: table.add_row(f"[bold black on {color}]{opt:^{total_width}}[/]")
+        if idx == selected: table.add_row(f"[bold white on {color}]{opt:^{total_width}}[/]")
         else: table.add_row(f"{opt:^{total_width}}")
 
     help_text = "Use Up/Down arrows and Enter to select. Press q to exit."
@@ -149,13 +149,19 @@ def run_menu() -> None:
                 if selected == len(topic_options) - 1:
                     selected = 0
                     view = "groups"
-                """ else:
-                    topic_name = topics[selected]
-                    topic_handler = TOPIC_HANDLERS.get(topic_name)
-                    if topic_handler is not None:
-                        topic_handler(console, read_key)
+                else:
+                    topic = topics[selected]
+                    if topic == "Login":
+                        username, password = login()
+                        # Here you can add the authentication logic
+                        show_placeholder(f"Attempting to log in as {username}...")
+                    elif topic == "Sign Up":
+                        role, user = login_u()
+                        # Here you can add the user creation logic
+                        show_placeholder(f"User {user['username']} created with role {role}")
                     else:
-                        show_placeholder(topic_name)"""
+                        show_placeholder(topic)
+                    selected = 0
 
 
 
