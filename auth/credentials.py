@@ -1,16 +1,16 @@
-import visual
+from ui import visuals
 
 def login_u():
     while True:
-        visual.show_login()
+        visuals.show_login()
 
-        name = visual.enter("Name")
-        lastname = visual.enter("Lastname")
-        username = visual.enter("Username")
-        password = visual.enter("Password")
-        birth = visual.enter_date("Date of Birth")
-        job = visual.enter("Role")
-        offences = visual.enter_int("Offences")
+        name = visuals.enter("Name")
+        lastname = visuals.enter("Lastname")
+        username = visuals.enter("Username")
+        password = visuals.enter("Password")
+        birth = visuals.enter_date("Date of Birth")
+        job = visuals.enter("Role")
+        offences = visuals.enter_int("Offences")
 
         user = {
         "name": name,

@@ -13,15 +13,14 @@ from rich.panel import Panel
 from rich.table import Table
 
 # 3. Local Modules
-import visual
-from login import login_u
-from visual import UserCancelledError, show_cancelled_panel
+from auth.credentials import login, login_u
+from ui import visuals
 # Create console instance
 console = Console()
 
 
 def handle_sigint(signum, frame) -> None:
-    raise UserCancelledError()
+    raise visuals.UserCancelledError()
 
 MENUBOOKS = [
     {
@@ -54,7 +53,7 @@ MENUBOOKS = [
 
 def draw_menu(title: str, options: List[str], color: str, selected: int) -> None:
     console.clear()
-    visual.big_title("BOOKWORMS")
+    visuals.big_title("BOOKWORMS")
 
     table = Table(show_header=False, box=None, expand=True, pad_edge=False)
     table.add_column(ratio=1)
@@ -91,7 +90,7 @@ def read_key() -> str:
     try:
         tty.setraw(fd)
         char = sys.stdin.read(1)
-        if char == "\x03":raise UserCancelledError()
+        if char == "\x03": raise visuals.UserCancelledError()
         if char == "\x1b":
             seq = sys.stdin.read(2)
             if seq == "[A": return "UP"
@@ -165,7 +164,7 @@ def main() -> None:
     run_menu()
 
     console.clear()
-    visual.big_title("BOOKWORMS")
+    visuals.big_title("BOOKWORMS")
 
     # Exit code
     console.print(Align.center(Panel("📖 ¡THANK YOU FOR USING WORMBOOKS! 📖", border_style="#01796F")))
@@ -178,4 +177,4 @@ def main() -> None:
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, handle_sigint)
     try: main()
-    except (KeyboardInterrupt, UserCancelledError): show_cancelled_panel(console)
+    except (KeyboardInterrupt, visuals.UserCancelledError): visuals.show_cancelled_panel(console)
