@@ -9,12 +9,10 @@ from rich.console import Console
 from rich.panel import Panel
 
 # 3. Local Modules
+from database import database as db
 from ui import visuals
 
 console = Console()
-
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_NAME = os.path.normpath(os.path.join(SCRIPT_DIR, "../database/database2.db"))
 
 
 def login():
@@ -25,7 +23,7 @@ def login():
     password = visuals.input("Password", "password")
 
     # password = hash_password(password)
-    with sqlite3.connect(DB_NAME) as conn:
+    with db.get_connection() as conn:
         cursor = conn.cursor()
         # Parametrized query avoids SQL injection attacks
         cursor.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password),)

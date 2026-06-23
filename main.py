@@ -15,6 +15,8 @@ from rich.table import Table
 # 3. Local Modules
 from auth import credentials
 from ui import visuals
+from database import database
+
 # Create console instance
 console = Console()
 
@@ -168,19 +170,20 @@ def run_menu() -> None:
 
 
 def main() -> None:
-    #role, user = login_u()
-    run_menu()
+    # ★ -> Start for first time (improve this piece of SHIT :poop:)
+    database.initialize_database()
 
+    # Program Code
+    #role, user = login_u()
     console.clear()
     visuals.big_title("BOOKWORMS")
+    run_menu()
 
     # Exit code
     console.print(Align.center(Panel("📖 ¡THANK YOU FOR USING WORMBOOKS! 📖", border_style="#01796F")))
     console.print(Align.center("[dim]Press Enter or wait 5s to exit...[/dim]"))
     tty.setcbreak(sys.stdin.fileno())
     select.select([sys.stdin], [], [], 5)
-
-
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, handle_sigint)
