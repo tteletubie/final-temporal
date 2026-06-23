@@ -180,6 +180,8 @@ def main() -> None:
     run_menu()
 
     # Exit code
+    console.clear()
+    visuals.big_title("BOOKWORMS")
     console.print(Align.center(Panel("📖 ¡THANK YOU FOR USING WORMBOOKS! 📖", border_style="#01796F")))
     console.print(Align.center("[dim]Press Enter or wait 5s to exit...[/dim]"))
     tty.setcbreak(sys.stdin.fileno())
