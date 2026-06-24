@@ -17,7 +17,16 @@ console = Console()
 
 def login():
     console.clear()
-    console.print(Align.center(Panel(Align.center("[bold green]Enter your credentials[/bold green]"), title="[bold #00FFB3]Login[/bold #00FFB3]", border_style="#00FFB3", width=50)))
+    console.print(
+        Align.center(
+            Panel(
+                Align.center("[bold green]Enter your credentials[/bold green]"),
+                title="[bold #00FFB3]Login[/bold #00FFB3]",
+                border_style="#00FFB3",
+                width=50,
+            )
+        )
+    )
 
     username = visuals.input("Username")
     password = visuals.input("Password", "password")
@@ -26,7 +35,10 @@ def login():
     with db.get_connection() as conn:
         cursor = conn.cursor()
         # Parametrized query avoids SQL injection attacks
-        cursor.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password),)
+        cursor.execute(
+            "SELECT * FROM users WHERE username = ? AND password = ?",
+            (username, password),
+        )
         user = cursor.fetchone()
         return username if user else False
 
@@ -35,25 +47,35 @@ def login_u():
     while True:
         visuals.show_login()
 
-        name = visuals.input("Name")
-        lastname = visuals.input("Lastname")
-        username = visuals.input("Username")
+        name = visuals.input("Name").lower()
+        lastname = visuals.input("Lastname").lower()
+        username = visuals.input("Username").lower()
         password = visuals.input("Password")
-        birth = visuals.input_date("Date of Birth")
-        job = visuals.input("Role")
-        offences = visuals.input_int("Offences")
+        birthday = visuals.enter_date("Date of Birth")
+        job = "user"
+        offences = 0
 
         user = {
             "name": name,
             "lastname": lastname,
             "username": username,
             "password": password,
-            "birth": birth,
+            "birth": birthday,
             "job": job,
             "offences": offences,
         }
 
-        return job.lower(), user
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                "INSERT INTO users (name, lastname, username, password, birthday, job, offences) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (name, lastname, username, password, birthday, job, offences),
+            )
+
+            conn.commit()
+
+        return login()
 
 
 def logout():

@@ -24,31 +24,16 @@ console = Console()
 def handle_sigint(signum, frame) -> None:
     raise visuals.UserCancelledError()
 
+
 MENUBOOKS = [
-    {
-        "name": "Login / Sign In",
-        "topics": [ "Login", "Sign Up"],
-        "color": "green"
-    },
-    {
-        "name": " Books ",
-        "topics": ["Titles", "Categories"],
-        "color": "green"
-    },
-    {
-        "name": "Registers",
-        "topics": ["Users", "Admins"],
-        "color": "green"
-    },
-    {
-        "name": "Services",
-        "topics": ["Historial", "Due Dates"],
-        "color": "green"
-    },
+    {"name": "Login / Sign In", "topics": ["Login", "Sign Up"], "color": "green"},
+    {"name": " Books ", "topics": ["Titles", "Categories"], "color": "green"},
+    {"name": "Registers", "topics": ["Users", "Admins"], "color": "green"},
+    {"name": "Services", "topics": ["Historial", "Due Dates"], "color": "green"},
     {
         "name": "Offences",
         "topics": ["Type", "Historial", "Learn more about offences"],
-        "color": "green"
+        "color": "green",
     },
 ]
 
@@ -60,30 +45,42 @@ def draw_menu(title: str, options: List[str], color: str, selected: int) -> None
     table = Table(show_header=False, box=None, expand=True, pad_edge=False)
     table.add_column(ratio=1)
 
-    updated_options = [MENUBOOKS[0]["name"] if opt == MENUBOOKS[0]["name"] else opt for opt in options]
+    updated_options = [
+        MENUBOOKS[0]["name"] if opt == MENUBOOKS[0]["name"] else opt for opt in options
+    ]
 
     # 2. Calculation
     longest_opt_len = max(len(opt) for opt in updated_options)
     total_width = longest_opt_len + 40
 
     for idx, opt in enumerate(updated_options):
-        if idx > 0: table.add_row("")
+        if idx > 0:
+            table.add_row("")
 
-        if idx == selected: table.add_row(f"[bold white on {color}]{opt:^{total_width}}[/]")
-        else: table.add_row(f"{opt:^{total_width}}")
+        if idx == selected:
+            table.add_row(f"[bold white on {color}]{opt:^{total_width}}[/]")
+        else:
+            table.add_row(f"{opt:^{total_width}}")
 
     help_text = "Use Up/Down arrows and Enter to select. Press q to exit."
-    panel = Panel.fit(table, title=f"[bold #00FFB3]{title}[/bold #00FFB3]", subtitle=help_text, border_style="#00FFB3", width=70, padding=(1, 4))
+    panel = Panel.fit(
+        table,
+        title=f"[bold #00FFB3]{title}[/bold #00FFB3]",
+        subtitle=help_text,
+        border_style="#00FFB3",
+        width=70,
+        padding=(1, 4),
+    )
     console.print(Align.center(panel))
 
 
 def read_key() -> str:
-    """Read one keypress and map arrows, 
-    
-    
-    
-    
-    
+    """Read one keypress and map arrows,
+
+
+
+
+
     enter, back, and quit to semantic values."""
 
     fd = sys.stdin.fileno()
@@ -92,16 +89,22 @@ def read_key() -> str:
     try:
         tty.setraw(fd)
         char = sys.stdin.read(1)
-        if char == "\x03": raise visuals.UserCancelledError()
+        if char == "\x03":
+            raise visuals.UserCancelledError()
         if char == "\x1b":
             seq = sys.stdin.read(2)
-            if seq == "[A": return "UP"
-            if seq == "[B": return "DOWN"
+            if seq == "[A":
+                return "UP"
+            if seq == "[B":
+                return "DOWN"
             return "OTHER"
 
-        if char in ("\r", "\n"): return "ENTER"
-        if char in ("q", "Q"): return "QUIT"
-        if char in ("b", "B"): return "BACK"
+        if char in ("\r", "\n"):
+            return "ENTER"
+        if char in ("q", "Q"):
+            return "QUIT"
+        if char in ("b", "B"):
+            return "BACK"
         return "OTHER"
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
@@ -109,7 +112,13 @@ def read_key() -> str:
 
 def show_placeholder(topic: str) -> None:
     console.clear()
-    console.print(Panel.fit(f"[bold]Selected:[/bold] {topic}\n\nPlaceholder: ....", title="Topic", border_style="green"))
+    console.print(
+        Panel.fit(
+            f"[bold]Selected:[/bold] {topic}\n\nPlaceholder: ....",
+            title="Topic",
+            border_style="green",
+        )
+    )
     console.print("Press any key to return...")
     read_key()
 
@@ -125,25 +134,31 @@ def run_menu() -> None:
             draw_menu("🐛 MENU 🐛", group_options, "blue", selected)
             key = read_key()
 
-            if key == "QUIT": break
-            if key == "UP": selected = (selected - 1) % len(group_options)
-            elif key == "DOWN": selected = (selected + 1) % len(group_options)
+            if key == "QUIT":
+                break
+            if key == "UP":
+                selected = (selected - 1) % len(group_options)
+            elif key == "DOWN":
+                selected = (selected + 1) % len(group_options)
             elif key == "ENTER":
-                if selected == len(group_options) - 1: break
+                if selected == len(group_options) - 1:
+                    break
                 current_group = selected
                 selected = 0
                 view = "topics"
         else:
-            
             topics = MENUBOOKS[current_group]["topics"]
             topic_options = topics + ["← Back"]
             color = MENUBOOKS[current_group]["color"]
             draw_menu(MENUBOOKS[current_group]["name"], topic_options, color, selected)
             key = read_key()
 
-            if key == "QUIT": break
-            if key == "UP": selected = (selected - 1) % len(topic_options)
-            elif key == "DOWN": selected = (selected + 1) % len(topic_options)
+            if key == "QUIT":
+                break
+            if key == "UP":
+                selected = (selected - 1) % len(topic_options)
+            elif key == "DOWN":
+                selected = (selected + 1) % len(topic_options)
             elif key == "BACK":
                 selected = 0
                 view = "groups"
@@ -157,16 +172,20 @@ def run_menu() -> None:
                         logged_username = credentials.login()
                         if logged_username:
                             # Here you can add the authentication logic
-                            show_placeholder(f"Attempting to log in as {logged_username}...")
-                        else: show_placeholder("Login failed. Please try again.")
+                            show_placeholder(
+                                f"Attempting to log in as {logged_username}..."
+                            )
+                        else:
+                            show_placeholder("Login failed. Please try again.")
                     elif topic == "Sign Up":
                         role, user = credentials.login_u()
                         # Here you can add the user creation logic
-                        show_placeholder(f"User {user['username']} created with role {role}")
+                        show_placeholder(
+                            f"User {user['username']} created with role {role}"
+                        )
                     else:
                         show_placeholder(topic)
                     selected = 0
-
 
 
 def main() -> None:
@@ -174,7 +193,7 @@ def main() -> None:
     database.initialize_database()
 
     # Program Code
-    #role, user = login_u()
+    # role, user = login_u()
     console.clear()
     visuals.big_title("BOOKWORMS")
     run_menu()
@@ -182,12 +201,19 @@ def main() -> None:
     # Exit code
     console.clear()
     visuals.big_title("BOOKWORMS")
-    console.print(Align.center(Panel("📖 ¡THANK YOU FOR USING WORMBOOKS! 📖", border_style="#01796F")))
+    console.print(
+        Align.center(
+            Panel("📖 ¡THANK YOU FOR USING WORMBOOKS! 📖", border_style="#01796F")
+        )
+    )
     console.print(Align.center("[dim]Press Enter or wait 5s to exit...[/dim]"))
     tty.setcbreak(sys.stdin.fileno())
     select.select([sys.stdin], [], [], 5)
 
+
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, handle_sigint)
-    try: main()
-    except (KeyboardInterrupt, visuals.UserCancelledError): visuals.show_cancelled_panel(console)
+    try:
+        main()
+    except (KeyboardInterrupt, visuals.UserCancelledError):
+        visuals.show_cancelled_panel(console)
