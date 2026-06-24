@@ -178,11 +178,12 @@ def run_menu() -> None:
                         else:
                             show_placeholder("Login failed. Please try again.")
                     elif topic == "Sign Up":
-                        role, user = credentials.login_u()
+                        """
+                        role, user = credentials.sign_up()
                         # Here you can add the user creation logic
                         show_placeholder(
                             f"User {user['username']} created with role {role}"
-                        )
+                        )"""
                     else:
                         show_placeholder(topic)
                     selected = 0
@@ -193,7 +194,6 @@ def main() -> None:
     database.initialize_database()
 
     # Program Code
-    # role, user = login_u()
     console.clear()
     visuals.big_title("BOOKWORMS")
     run_menu()
@@ -201,11 +201,7 @@ def main() -> None:
     # Exit code
     console.clear()
     visuals.big_title("BOOKWORMS")
-    console.print(
-        Align.center(
-            Panel("📖 ¡THANK YOU FOR USING WORMBOOKS! 📖", border_style="#01796F")
-        )
-    )
+    console.print(Align.center(Panel("📖 ¡THANK YOU FOR USING WORMBOOKS! 📖", border_style="#01796F")))
     console.print(Align.center("[dim]Press Enter or wait 5s to exit...[/dim]"))
     tty.setcbreak(sys.stdin.fileno())
     select.select([sys.stdin], [], [], 5)

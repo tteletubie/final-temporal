@@ -14,19 +14,6 @@ from pyfiglet import figlet_format
 console = Console()
 
 
-def show_login():
-    print("\n ")
-    print("[#7FFFD4]Library Management System[/#7FFFD4]")
-    print(
-        Panel(
-            f"[#00FF7F]Please Access With Your Data[/#00FF7F]",
-            border_style="#7FFFD4",
-            title="Login",
-        )
-    )
-    print("\n ")
-
-
 def big_title(text):
     big = figlet_format(text, font="slant")
     print(Align.center(f"[#00FF7F]{big}[/#00FF7F]"))

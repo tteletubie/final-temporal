@@ -17,16 +17,7 @@ console = Console()
 
 def login():
     console.clear()
-    console.print(
-        Align.center(
-            Panel(
-                Align.center("[bold green]Enter your credentials[/bold green]"),
-                title="[bold #00FFB3]Login[/bold #00FFB3]",
-                border_style="#00FFB3",
-                width=50,
-            )
-        )
-    )
+    console.print(Align.center(Panel(Align.center("[bold green]Enter your credentials[/bold green]"), title="[bold #00FFB3]Login[/bold #00FFB3]", border_style="#00FFB3",width=50)))
 
     username = visuals.input("Username")
     password = visuals.input("Password", "password")
@@ -43,36 +34,26 @@ def login():
         return username if user else False
 
 
-def login_u():
+def sign_up():
     while True:
-        visuals.show_login()
+        console.clear()
+        #console.print("[#7FFFD4]Library Management System[/#7FFFD4]")
+        console.print(Align.center(Panel(Align.center("[bold green]Create an account[/bold green]"), title="[bold #00FFB3]Sign Up[/bold #00FFB3]", border_style="#00FFB3",width=50)))
 
         name = visuals.input("Name").lower()
         lastname = visuals.input("Lastname").lower()
         username = visuals.input("Username").lower()
-        password = visuals.input("Password")
+        password = visuals.input("Password", "password")
         birthday = visuals.enter_date("Date of Birth")
         job = "user"
         offences = 0
 
-        user = {
-            "name": name,
-            "lastname": lastname,
-            "username": username,
-            "password": password,
-            "birth": birthday,
-            "job": job,
-            "offences": offences,
-        }
-
         with db.get_connection() as conn:
             cursor = conn.cursor()
-
             cursor.execute(
                 "INSERT INTO users (name, lastname, username, password, birthday, job, offences) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (name, lastname, username, password, birthday, job, offences),
             )
-
             conn.commit()
 
         return login()
