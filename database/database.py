@@ -18,7 +18,8 @@ def initialize_database():
             name VARCHAR(50),
             lastname VARCHAR(20),
             username VARCHAR(10) UNIQUE,
-            password VARCHAR(40),
+            password VARCHAR(255),
+            password_salt VARCHAR(255),
             birthday DATE,
             job VARCHAR(20),
             offences INTEGER

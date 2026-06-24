@@ -178,6 +178,7 @@ def run_menu() -> None:
                         else:
                             show_placeholder("Login failed. Please try again.")
                     elif topic == "Sign Up":
+                        credentials.sign_up()
                         """
                         role, user = credentials.sign_up()
                         # Here you can add the user creation logic
