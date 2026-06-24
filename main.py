@@ -1,10 +1,22 @@
 # 1. Standard Libraries
+import os
+import select
 import signal
 import sys
-import termios
-import tty
-import select
+import time
 from typing import List
+
+try:
+    import termios
+    import tty
+except ImportError:  # pragma: no cover - Windows fallback
+    termios = None
+    tty = None
+
+try:
+    import msvcrt
+except ImportError:  # pragma: no cover - Unix fallback
+    msvcrt = None
 
 # 2. Third-Party Libraries
 from rich.align import Align
@@ -74,14 +86,42 @@ def draw_menu(title: str, options: List[str], color: str, selected: int) -> None
     console.print(Align.center(panel))
 
 
+def _map_key(char: str, seq: str = "") -> str:
+    if char == "\x03":
+        raise visuals.UserCancelledError()
+    if char == "\x1b" and seq == "[A":
+        return "UP"
+    if char == "\x1b" and seq == "[B":
+        return "DOWN"
+    if char in ("\r", "\n"):
+        return "ENTER"
+    if char in ("q", "Q"):
+        return "QUIT"
+    if char in ("b", "B"):
+        return "BACK"
+    return "OTHER"
+
+
 def read_key() -> str:
-    """Read one keypress and map arrows,
+    """Read one keypress and map arrows, enter, back, and quit to semantic values."""
+    if os.name == "nt":
+        if msvcrt is None:
+            return "OTHER"
 
+        char = msvcrt.getwch()
+        if char == "\x03":
+            raise visuals.UserCancelledError()
+        if char in ("\x00", "\xe0"):
+            next_char = msvcrt.getwch()
+            if next_char == "H":
+                return "UP"
+            if next_char == "P":
+                return "DOWN"
+            return "OTHER"
+        return _map_key(char)
 
-
-
-
-    enter, back, and quit to semantic values."""
+    if tty is None or termios is None or not sys.stdin.isatty():
+        return "OTHER"
 
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
@@ -89,25 +129,32 @@ def read_key() -> str:
     try:
         tty.setraw(fd)
         char = sys.stdin.read(1)
-        if char == "\x03":
-            raise visuals.UserCancelledError()
         if char == "\x1b":
             seq = sys.stdin.read(2)
-            if seq == "[A":
-                return "UP"
-            if seq == "[B":
-                return "DOWN"
-            return "OTHER"
-
-        if char in ("\r", "\n"):
-            return "ENTER"
-        if char in ("q", "Q"):
-            return "QUIT"
-        if char in ("b", "B"):
-            return "BACK"
-        return "OTHER"
+            return _map_key(char, seq)
+        return _map_key(char)
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+
+def wait_for_exit(delay: float = 5.0) -> None:
+    """Wait briefly for a keypress before exiting, using a portable implementation."""
+    if os.name == "nt":
+        if msvcrt is None:
+            return
+        end_time = time.time() + delay
+        while time.time() < end_time:
+            if msvcrt.kbhit():
+                msvcrt.getwch()
+                break
+            time.sleep(0.1)
+        return
+
+    if not sys.stdin.isatty():
+        return
+    select.select([sys.stdin], [], [], delay)
+    if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+        sys.stdin.read(1)
 
 
 def show_placeholder(topic: str) -> None:
@@ -202,10 +249,13 @@ def main() -> None:
     # Exit code
     console.clear()
     visuals.big_title("BOOKWORMS")
-    console.print(Align.center(Panel("📖 ¡THANK YOU FOR USING WORMBOOKS! 📖", border_style="#01796F")))
+    console.print(
+        Align.center(
+            Panel("📖 ¡THANK YOU FOR USING WORMBOOKS! 📖", border_style="#01796F")
+        )
+    )
     console.print(Align.center("[dim]Press Enter or wait 5s to exit...[/dim]"))
-    tty.setcbreak(sys.stdin.fileno())
-    select.select([sys.stdin], [], [], 5)
+    wait_for_exit(5)
 
 
 if __name__ == "__main__":
