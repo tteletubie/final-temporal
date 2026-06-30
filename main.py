@@ -221,9 +221,7 @@ def run_menu() -> None:
                             # Here you can add the authentication logic
                             show_placeholder(
                                 f"Attempting to log in as {logged_username}..."
-                            )
-                        else:
-                            show_placeholder("Login failed. Please try again.")
+                            )      
                     elif topic == "Sign Up":
                         credentials.sign_up()
                         """
