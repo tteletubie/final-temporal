@@ -38,15 +38,9 @@ def handle_sigint(signum, frame) -> None:
 
 
 MENUBOOKS = [
-    {"name": "Login / Sign In", "topics": ["Login", "Sign Up"], "color": "green"},
-    {"name": " Books ", "topics": ["Titles", "Categories"], "color": "green"},
-    {"name": "Registers", "topics": ["Users", "Admins"], "color": "green"},
-    {"name": "Services", "topics": ["Historial", "Due Dates"], "color": "green"},
-    {
-        "name": "Offences",
-        "topics": ["Type", "Historial", "Learn more about offences"],
-        "color": "green",
-    },
+    { "name": " Books ", "topics": ["Title", "Categories", "Author"], "color": "green" },
+    { "name": "Login / Sign In", "topics": ["Login", "Sign Up"], "color": "green" },
+    { "name": "About", "topics": ["Staff", "Rules", "Made by"], "color": "green" }
 ]
 
 
@@ -57,9 +51,7 @@ def draw_menu(title: str, options: List[str], color: str, selected: int) -> None
     table = Table(show_header=False, box=None, expand=True, pad_edge=False)
     table.add_column(ratio=1)
 
-    updated_options = [
-        MENUBOOKS[0]["name"] if opt == MENUBOOKS[0]["name"] else opt for opt in options
-    ]
+    updated_options = [MENUBOOKS[0]["name"] if opt == MENUBOOKS[0]["name"] else opt for opt in options]
 
     # 2. Calculation
     longest_opt_len = max(len(opt) for opt in updated_options)
@@ -159,13 +151,7 @@ def wait_for_exit(delay: float = 5.0) -> None:
 
 def show_placeholder(topic: str) -> None:
     console.clear()
-    console.print(
-        Panel.fit(
-            f"[bold]Selected:[/bold] {topic}\n\nPlaceholder: ....",
-            title="Topic",
-            border_style="green",
-        )
-    )
+    console.print(Panel.fit(f"[bold]Selected:[/bold] {topic}\n\nPlaceholder: ....", title="Topic", border_style="green"))
     console.print("Press any key to return...")
     read_key()
 

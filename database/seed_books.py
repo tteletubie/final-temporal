@@ -1,12 +1,3 @@
-# -*- coding: utf-8 -*-
-
-import sqlite3
-from pathlib import Path
-
-DB_PATH = Path(__file__).parent / "database.db"
-
-RESET_TABLE = True  # Set to True to reset the table, False to keep existing data
-
 books = [
     ("1984", "Dystopian", "George Orwell", "1949"),
     ("Animal Farm", "Satire", "George Orwell", "1945"),
@@ -106,30 +97,26 @@ books = [
     ("The Da Vinci Code", "Mystery", "Dan Brown", "2003"),
 ]
 
-with sqlite3.connect(DB_PATH) as conn:
-    cursor = conn.cursor()
+def seed_books(conn):
+    with conn as conn:
+        cursor = conn.cursor()
+        before = cursor.execute("SELECT COUNT(*) FROM books").fetchone()[0]
 
-    if RESET_TABLE:
-        cursor.execute("DELETE FROM books")
-
-    before = cursor.execute("SELECT COUNT(*) FROM books").fetchone()[0]
-
-    for name, category, author, year in books:
-        cursor.execute(
-            """
-            INSERT INTO books (name, category, author, year)
-            SELECT ?, ?, ?, ?
-            WHERE NOT EXISTS (
-                SELECT 1 FROM books
-                WHERE name = ? AND author = ?
+        for name, category, author, year in books:
+            cursor.execute(
+                """
+                INSERT INTO books (name, category, author, year)
+                SELECT ?, ?, ?, ?
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM books
+                    WHERE name = ? AND author = ?
+                )
+                """, (name, category, author, year, name, author)
             )
-            """,
-            (name, category, author, year, name, author)
-        )
 
-    conn.commit()
+        conn.commit()
 
-    after = cursor.execute("SELECT COUNT(*) FROM books").fetchone()[0]
+        after = cursor.execute("SELECT COUNT(*) FROM books").fetchone()[0]
 
-print(f"Books added: {after - before}")
-print(f"Total books: {after}")
+    print(f"Books added: {after - before}")
+    print(f"Total books: {after}")

@@ -1,6 +1,8 @@
 import sqlite3
 import os
 
+from . import seed_books as seed_books
+
 DB_FILE = os.path.join(os.path.dirname(__file__), 'database.db')
 
 def get_connection():
@@ -64,3 +66,5 @@ def initialize_database():
 if __name__ == '__main__':
     initialize_database()
     print("Database initialized successfully.")
+    # Seeds data
+    seed_books(get_connection())
