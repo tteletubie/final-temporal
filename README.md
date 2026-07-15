@@ -27,5 +27,3 @@ Or use it online (you gotta be logged) -> <br>
 2. Luis Gael Gonzalez Torres :star:
 3. Grecia Carolina Silva Cortes
 4. Maria Fernanda Obregon Ramirez
-
-<!-- THIS COMMIT IS A 🐂💩 -->
