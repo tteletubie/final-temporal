@@ -25,6 +25,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 # 3. Local Modules
+from library import books
 from auth import credentials
 from ui import visuals
 from database import database
@@ -216,6 +217,7 @@ def run_menu() -> None:
                         show_placeholder(
                             f"User {user['username']} created with role {role}"
                         )"""
+                    elif topic == "Categories": books.show_info()
                     else:
                         show_placeholder(topic)
                     selected = 0
