@@ -217,7 +217,12 @@ def run_menu() -> None:
                         show_placeholder(
                             f"User {user['username']} created with role {role}"
                         )"""
-                    elif topic == "Categories": books.show_info()
+                    elif topic == "Categories": 
+                        books.show_category()
+                    elif topic == "Title":
+                        books.show_title()
+                    elif topic == "Author":
+                        books.show_author()
                     else:
                         show_placeholder(topic)
                     selected = 0
