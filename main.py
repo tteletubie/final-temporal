@@ -28,6 +28,7 @@ from rich.table import Table
 from library import books
 from auth import credentials
 from ui import visuals
+from about import about
 from database import database
 
 # Create console instance
@@ -223,6 +224,12 @@ def run_menu() -> None:
                         books.show_title()
                     elif topic == "Author":
                         books.show_author()
+                    elif topic == "Staff":
+                        about.show_staff()
+                    elif topic == "Rules":
+                        about.show_rules()
+                    elif topic == "Made by":
+                        about.show_made_by()
                     else:
                         show_placeholder(topic)
                     selected = 0
