@@ -1,7 +1,7 @@
 import sqlite3
 import os
 
-from . import seed_books as seed_books
+from .seed_books import seed_books
 
 DB_FILE = os.path.join(os.path.dirname(__file__), 'database.db')
 

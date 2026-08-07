@@ -26,6 +26,8 @@ from rich.table import Table
 
 # 3. Local Modules
 from auth import credentials
+from books import show_books_catalog
+from database.seed_books import seed_books
 from ui import visuals
 from database import database
 
@@ -201,7 +203,9 @@ def run_menu() -> None:
                     view = "groups"
                 else:
                     topic = topics[selected]
-                    if topic == "Login":
+                    if topic == "Categories":
+                        show_books_catalog(topic)
+                    elif topic == "Login":
                         logged_username = credentials.login()
                         if logged_username:
                             # Here you can add the authentication logic
@@ -226,6 +230,7 @@ def run_menu() -> None:
 def main() -> None:
     # ★ -> Start for first time (improve this piece of SHIT :poop:)
     database.initialize_database()
+    seed_books(database.get_connection())
 
     # Program Code
     console.clear()
