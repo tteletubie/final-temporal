@@ -25,8 +25,9 @@ from rich.panel import Panel
 from rich.table import Table
 
 # 3. Local Modules
-from library import books
 from auth import credentials
+from author import show_author
+from books import show_title
 from categories import show_categories
 from database.seed_books import seed_books
 from ui import visuals
@@ -223,9 +224,9 @@ def run_menu() -> None:
                             f"User {user['username']} created with role {role}"
                         )"""
                     elif topic == "Title":
-                        books.show_title()
+                        show_title()
                     elif topic == "Author":
-                        books.show_author()
+                        show_author()
                     elif topic == "Staff":
                         about.show_staff()
                     elif topic == "Rules":
