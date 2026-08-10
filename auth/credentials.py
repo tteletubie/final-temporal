@@ -39,7 +39,7 @@ def verify_password(stored_hash: bytes, stored_salt: bytes, input_password: str)
 # =========================================================================
 # VALIDATION FUNCTIONS
 # =========================================================================
-# Every validate_* function returns a tuple (is_valid: bool, error_message: str).
+# validate_field() returns a tuple (is_valid: bool, error_message: str).
 # error_message is "" when is_valid is True.
 
 NAME_MIN_LEN = 2
@@ -60,106 +60,86 @@ _NAME_REGEX = re.compile(r"^[A-Za-zÁÉÍÓÚáéíóúÑñÜü]+(?: [A-Za-zÁÉ
 _SPECIAL_CHARS_REGEX = re.compile(r"[!@#$%^&*()\-_=+\[\]{};:,.<>?/|~]")
 
 
-def validate_required(value: str, field_label: str = "Field") -> tuple[bool, str]:
-    """Generic 'not empty' check, used for simple required fields (e.g. Login)."""
-    if not value or not value.strip():
-        return False, f"{field_label} cannot be empty."
-    return True, ""
+def validate_field(
+    validation_type: str,
+    value: str,
+    field_label: str = "Field",
+    *,
+    max_len: int | None = None,
+    confirm_value: str | None = None,
+    date_format: str = "%Y-%m-%d",
+) -> tuple[bool, str]:
+    """Validate a value by type.
 
+    Supported validation_type values:
+    required, name, lastname, username, password, password_match, birthday.
+    """
+    kind = validation_type.strip().lower()
 
-def validate_name(name: str, field_label: str = "Name", max_len: int = NAME_MAX_LEN) -> tuple[bool, str]:
-    """Validate a person's first name: not empty, no numbers,
-    at least 2 characters, spaces allowed."""
-    name = name.strip()
+    match kind:
+        case "required":
+            if not value or not value.strip(): return False, f"{field_label} cannot be empty."
+            return True, ""
 
-    if not name:
-        return False, f"{field_label} cannot be empty."
-    if len(name) < NAME_MIN_LEN:
-        return False, f"{field_label} must have at least {NAME_MIN_LEN} characters."
-    if len(name) > max_len:
-        return False, f"{field_label} must not exceed {max_len} characters."
-    if not _NAME_REGEX.match(name):
-        return False, f"{field_label} can only contain letters and single spaces between words."
+        case "name" | "lastname":
+            trimmed_value = value.strip()
+            limit = max_len if max_len is not None else (LASTNAME_MAX_LEN if kind == "lastname" else NAME_MAX_LEN)
 
-    return True, ""
+            if not trimmed_value: return False, f"{field_label} cannot be empty."
+            if len(trimmed_value) < NAME_MIN_LEN: return False, f"{field_label} must have at least {NAME_MIN_LEN} characters."
+            if len(trimmed_value) > limit: return False, f"{field_label} must not exceed {limit} characters."
+            if not _NAME_REGEX.match(trimmed_value): return False, f"{field_label} can only contain letters and single spaces between words."
 
+            return True, ""
 
-def validate_lastname(lastname: str) -> tuple[bool, str]:
-    """Validate a person's lastname. Uses the same rules as validate_name
-    but with the shorter max length defined by the lastname column."""
-    return validate_name(lastname, field_label="Lastname", max_len=LASTNAME_MAX_LEN)
+        case "username":
+            if not value or not value.strip(): return False, "Username cannot be empty."
+            if len(value) < USERNAME_MIN_LEN: return False, f"Username must have at least {USERNAME_MIN_LEN} characters."
+            if len(value) > USERNAME_MAX_LEN: return False, f"Username must not exceed {USERNAME_MAX_LEN} characters."
+            if " " in value: return False, "Username cannot contain spaces."
 
+            return True, ""
 
-def validate_username(username: str) -> tuple[bool, str]:
-    """Validate the format of a username: not empty, 4-20 characters,
-    no spaces. Uniqueness is checked separately via username_exists()."""
-    if not username or not username.strip():
-        return False, "Username cannot be empty."
-    if len(username) < USERNAME_MIN_LEN:
-        return False, f"Username must have at least {USERNAME_MIN_LEN} characters."
-    if len(username) > USERNAME_MAX_LEN:
-        return False, f"Username must not exceed {USERNAME_MAX_LEN} characters."
-    if " " in username:
-        return False, "Username cannot contain spaces."
+        case "password":
+            if not value: return False, "Password cannot be empty."
+            if " " in value: return False, "Password cannot contain spaces."
+            if len(value) < PASSWORD_MIN_LEN: return False, f"Password must have at least {PASSWORD_MIN_LEN} characters."
+            if len(value) > PASSWORD_MAX_LEN: return False, f"Password must not exceed {PASSWORD_MAX_LEN} characters."
+            if not re.search(r"[A-Z]", value): return False, "Password must contain at least one uppercase letter."
+            if not re.search(r"[a-z]", value): return False, "Password must contain at least one lowercase letter."
+            if not re.search(r"[0-9]", value): return False, "Password must contain at least one number."
+            if not _SPECIAL_CHARS_REGEX.search(value):return False, "Password must contain at least one special character (!@#$%^&* etc.)."
 
-    return True, ""
+            return True, ""
 
+        case "password_match":
+            if confirm_value is None:return False, "Confirmation value is required."
+            if value != confirm_value: return False, "Passwords do not match."
+            return True, ""
 
-def validate_password(password: str) -> tuple[bool, str]:
-    """Validate password strength: 8-16 characters, at least one
-    uppercase, one lowercase, one number and one special character."""
-    if not password:
-        return False, "Password cannot be empty."
-    if " " in password:
-        return False, "Password cannot contain spaces."
-    if len(password) < PASSWORD_MIN_LEN:
-        return False, f"Password must have at least {PASSWORD_MIN_LEN} characters."
-    if len(password) > PASSWORD_MAX_LEN:
-        return False, f"Password must not exceed {PASSWORD_MAX_LEN} characters."
-    if not re.search(r"[A-Z]", password):
-        return False, "Password must contain at least one uppercase letter."
-    if not re.search(r"[a-z]", password):
-        return False, "Password must contain at least one lowercase letter."
-    if not re.search(r"[0-9]", password):
-        return False, "Password must contain at least one number."
-    if not _SPECIAL_CHARS_REGEX.search(password):
-        return False, "Password must contain at least one special character (!@#$%^&* etc.)."
+        case "birthday":
+            if not value or not value.strip(): return False, f"{field_label} cannot be empty."
 
-    return True, ""
+            try:
+                birth_date = datetime.strptime(value, date_format).date()
+            except (ValueError, TypeError):
+                return False, "Invalid date format."
 
+            today = date.today()
 
-def validate_passwords_match(password: str, confirm_password: str) -> tuple[bool, str]:
-    """Check that the password confirmation matches the original password."""
-    if password != confirm_password:
-        return False, "Passwords do not match."
-    return True, ""
+            if birth_date > today: return False, f"{field_label} cannot be in the future."
+            if birth_date.year < MIN_BIRTH_YEAR:return False, f"{field_label} cannot be before {MIN_BIRTH_YEAR}."
 
+            return True, ""
 
-def validate_birthday(birthday: str, date_format: str = "%Y-%m-%d") -> tuple[bool, str]:
-    """Validate a date of birth: not empty, correct format, not in the
-    future, and not before MIN_BIRTH_YEAR."""
-    if not birthday or not birthday.strip():
-        return False, "Date of birth cannot be empty."
-
-    try:
-        birth_date = datetime.strptime(birthday, date_format).date()
-    except (ValueError, TypeError):
-        return False, "Invalid date format."
-
-    today = date.today()
-
-    if birth_date > today:
-        return False, "Date of birth cannot be in the future."
-    if birth_date.year < MIN_BIRTH_YEAR:
-        return False, f"Date of birth cannot be before {MIN_BIRTH_YEAR}."
-
-    return True, ""
+        case _:
+            return False, f"Unknown validation type: {validation_type}"
 
 def _ask_required(prompt_text: str, field_type: str = "text") -> str:
     """Keep asking until the user actually types something."""
     while True:
         value = visuals.input(prompt_text, field_type)
-        valid, message = validate_required(value, prompt_text)
+        valid, message = validate_field("required", value, prompt_text)
         if valid:
             return value
         visuals.error(message)
@@ -188,7 +168,7 @@ def login():
 def _ask_name() -> str:
     while True:
         name = visuals.input("Name").strip()
-        valid, message = validate_name(name)
+        valid, message = validate_field("name", name, "Name")
         if valid:
             return name.lower()
         visuals.error(message)
@@ -197,7 +177,7 @@ def _ask_name() -> str:
 def _ask_lastname() -> str:
     while True:
         lastname = visuals.input("Lastname").strip()
-        valid, message = validate_lastname(lastname)
+        valid, message = validate_field("lastname", lastname, "Lastname", max_len=LASTNAME_MAX_LEN)
         if valid:
             return lastname.lower()
         visuals.error(message)
@@ -206,7 +186,7 @@ def _ask_lastname() -> str:
 def _ask_username() -> str:
     while True:
         username = visuals.input("Username").strip()
-        valid, message = validate_username(username)
+        valid, message = validate_field("username", username, "Username")
         if not valid:
             visuals.error(message)
             continue
@@ -222,13 +202,13 @@ def _ask_username() -> str:
 def _ask_password() -> str:
     while True:
         password = visuals.input("Password", "password")
-        valid, message = validate_password(password)
+        valid, message = validate_field("password", password, "Password")
         if not valid:
             visuals.error(message)
             continue
 
         confirm_password = visuals.input("Confirm Password", "password")
-        match, message = validate_passwords_match(password, confirm_password)
+        match, message = validate_field("password_match", confirm_password, "Confirm Password", confirm_value=password)
         if not match:
             visuals.error(message)
             continue
@@ -239,7 +219,7 @@ def _ask_password() -> str:
 def _ask_birthday() -> str:
     while True:
         birthday = visuals.enter_date("Date of Birth")
-        valid, message = validate_birthday(birthday)
+        valid, message = validate_field("birthday", birthday, "Date of Birth")
         if valid:
             return birthday
         visuals.error(message)
