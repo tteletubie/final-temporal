@@ -70,7 +70,7 @@ def _fetch_books_by_category(category: str):
         ).fetchall()
 
 
-def _render_catalog(categories: list[str], selected_index: int) -> None:
+def _render_categories_view(categories: list[str], selected_index: int) -> None:
     console.clear()
 
     selected_category = categories[selected_index]
@@ -113,22 +113,22 @@ def _render_catalog(categories: list[str], selected_index: int) -> None:
     )
 
     console.print(layout)
-    #console.print(Align.center("[dim]↑↓ change category | q back[/dim]"))
+    console.print(Align.center("[dim]↑↓ change category | q back[/dim]"))
 
 
-def show_books_catalog(view: str) -> None:
+def show_categories(view: str) -> None:
     if view == "Categories":
         categories = _fetch_categories()
         if not categories:
             console.clear()
-            console.print(Panel.fit("No categories available.", title="Books", border_style="green"))
+            console.print(Panel.fit("No categories available.", title="Categories", border_style="green"))
             console.input("Press Enter to return...")
             return
 
         selected_index = 0
 
         while True:
-            _render_catalog(categories, selected_index)
+            _render_categories_view(categories, selected_index)
             key = _read_key()
 
             if key in ("BACK", "ENTER"):
@@ -140,5 +140,5 @@ def show_books_catalog(view: str) -> None:
 
         
     console.clear()
-    console.print(Panel.fit("This view currently only supports Categories.", title="Books", border_style="green"))
+    console.print(Panel.fit("This view currently only supports Categories.", title="Categories", border_style="green"))
     console.input("Press Enter to return...")

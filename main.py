@@ -27,7 +27,7 @@ from rich.table import Table
 # 3. Local Modules
 from library import books
 from auth import credentials
-from books import show_books_catalog
+from categories import show_categories
 from database.seed_books import seed_books
 from ui import visuals
 from about import about
@@ -206,7 +206,7 @@ def run_menu() -> None:
                 else:
                     topic = topics[selected]
                     if topic == "Categories":
-                        show_books_catalog(topic)
+                        show_categories(topic)
                     elif topic == "Login":
                         logged_username = credentials.login()
                         if logged_username:
@@ -222,8 +222,6 @@ def run_menu() -> None:
                         show_placeholder(
                             f"User {user['username']} created with role {role}"
                         )"""
-                    elif topic == "Categories": 
-                        books.show_category()
                     elif topic == "Title":
                         books.show_title()
                     elif topic == "Author":
