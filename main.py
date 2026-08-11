@@ -40,6 +40,8 @@ def handle_sigint(signum, frame) -> None:
 MENUBOOKS = [
     { "name": " Books ", "topics": ["Title", "Categories", "Author"], "color": "green" },
     { "name": "Login / Sign In", "topics": ["Login", "Sign Up"], "color": "green" },
+    { "name": "Admin", "topics": ["Books", "Users"], "color": "green" },
+    { "name": "User", "topics": ["Books", "Status"], "color": "green" },#not the real categories yet idk what to put
     { "name": "About", "topics": ["Staff", "Rules", "Made by"], "color": "green" }
 ]
 
@@ -218,6 +220,8 @@ def run_menu() -> None:
                         show_placeholder(
                             f"User {user['username']} created with role {role}"
                         )"""
+                    elif MENUBOOKS[current_group]["name"]== "Admin":
+                        show_placeholder(f"Admin → {topic}")
                     else:
                         show_placeholder(topic)
                     selected = 0
