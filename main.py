@@ -46,6 +46,7 @@ MENUBOOKS = [
     { "name": " Books ", "topics": ["Title", "Categories", "Author"], "color": "green" },
     { "name": "Login / Sign In", "topics": ["Login", "Sign Up"], "color": "green" },
     { "name": "Admin", "topics": ["Books", "Users"], "color": "green" },
+    { "name": "User", "topics": ["Books", "Status"], "color": "green" },#not the real categories yet idk what to put
     { "name": "About", "topics": ["Staff", "Rules", "Made by"], "color": "green" }
 ]
 
