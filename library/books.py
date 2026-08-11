@@ -1,4 +1,5 @@
 # 1. Standard Libraries
+import os
 import sys
 
 try:
@@ -7,6 +8,11 @@ try:
 except ImportError:  # pragma: no cover - Windows fallback
     termios = None
     tty = None
+
+try:
+    import msvcrt
+except ImportError:  # pragma: no cover - Unix fallback
+    msvcrt = None
 
 # 2. Third-Party Libraries
 from rich import box
@@ -176,6 +182,98 @@ def _visible_book_rows(rows: list, show_all: bool = False) -> list:
     return rows[: max_rows - 1]
 
 
+def _normal_visible_rows(rows: list, selected_index: int) -> tuple[list, int]:
+    max_rows = max(3, console.size.height - 18)
+    if len(rows) <= max_rows:
+        return rows, 0
+
+    start = max(0, selected_index - (max_rows // 2))
+    end = start + max_rows
+    if end > len(rows):
+        end = len(rows)
+        start = end - max_rows
+
+    return rows[start:end], start
+
+
+def _render_normal_books_view(
+    title: str,
+    query_label: str,
+    query: str,
+    rows: list,
+    selected_index: int,
+    default_hint: str,
+) -> None:
+    console.clear()
+
+    visible_rows, start_index = _normal_visible_rows(rows, selected_index)
+    query_text = query if query else "(all books)"
+
+    top = Table.grid(padding=(0, 0))
+    top.add_row(f"[bold #00FFB3]{query_label}[/bold #00FFB3] [white]{query_text}[/white]")
+    top.add_row(f"[dim]{default_hint}[/dim]")
+    top.add_row(f"[dim]Showing {len(visible_rows)} of {len(rows)} result(s). Press / to search.[/dim]")
+    console.print(Align.center(Panel.fit(top, border_style="#01796F", title=title)))
+
+    table = Table(show_header=True, header_style="bold #00FFB3", box=box.SIMPLE_HEAVY, expand=True)
+    table.add_column("Title", style="white", no_wrap=False)
+    table.add_column("Category", style="white", no_wrap=False)
+    table.add_column("Author", style="white", no_wrap=False)
+    table.add_column("Year", style="white", no_wrap=False)
+
+    if rows:
+        for index, row in enumerate(visible_rows):
+            global_index = start_index + index
+            is_selected = global_index == selected_index
+            row_style_prefix = "[bold black on #00FFB3]" if is_selected else ""
+            row_style_suffix = "[/]" if is_selected else ""
+
+            table.add_row(
+                f"{row_style_prefix}{row['name']}{row_style_suffix}",
+                f"{row_style_prefix}{row['category']}{row_style_suffix}",
+                f"{row_style_prefix}{row['author']}{row_style_suffix}",
+                f"{row_style_prefix}{row['year']}{row_style_suffix}",
+            )
+
+        if len(rows) > len(visible_rows):
+            table.add_row("...", "More books available", "Use ↑↓ to scroll", "")
+    else:
+        table.add_row("No books found", "-", "-", "-")
+
+    console.print(Align.center(Panel.fit(table, border_style="#01796F", box=box.ROUNDED, padding=(0, 1))))
+    console.print(Align.center("[dim]Press / to search | ↑↓ scroll | q back[/dim]"))
+
+
+def _browse_books(
+    title: str,
+    query_label: str,
+    default_hint: str,
+    search_fn,
+) -> None:
+    query = ""
+    selected_index = 0
+
+    while True:
+        rows = _fetch_books() if not query else search_fn(query)
+        if rows:
+            selected_index = min(selected_index, len(rows) - 1)
+        else:
+            selected_index = 0
+
+        _render_normal_books_view(title, query_label, query, rows, selected_index, default_hint)
+        key = _read_key()
+
+        if key == "BACK":
+            return
+        if key == "SEARCH":
+            query = console.input("Search (Enter for all books): ").strip()
+            selected_index = 0
+        elif key == "UP" and rows:
+            selected_index = (selected_index - 1) % len(rows)
+        elif key == "DOWN" and rows:
+            selected_index = (selected_index + 1) % len(rows)
+
+
 def _render_search_view(title: str, query_label: str, query: str, rows: list, help_message: str) -> None:
     console.clear()
 
@@ -203,93 +301,30 @@ def _render_search_view(title: str, query_label: str, query: str, rows: list, he
 
 
 def show_category() -> None:
-    query = ""
-    rows = _fetch_books()
-
-    if not rows:
-        console.clear()
-        console.print(Panel.fit("No books available.", title="Category Search", border_style="green"))
-        console.input("Press Enter to return...")
-        return
-
-    while True:
-        _render_search_view(
-            "Search by Category",
-            "Search by category:",
-            query,
-            rows,
-            "Press Enter for the default view, or type all categories to show everything.",
-        )
-        user_input = console.input("[bold #00FFB3]Search category[/bold #00FFB3] (q to back, Enter for default): ").strip()
-
-        if user_input.lower() in ("q", "b"):
-            return
-
-        query = user_input
-        if _is_show_all_query(query):
-            rows = _fetch_books()
-        else:
-            rows = _search_books_by_category(query) if query else _fetch_books()
+    _browse_books(
+        "Search by Category",
+        "Search by category:",
+        "Use / to search categories.",
+        _search_books_by_category,
+    )
 
 
 def show_title() -> None:
-    query = ""
-    rows = _fetch_books()
-
-    if not rows:
-        console.clear()
-        console.print(Panel.fit("No books available.", title="Title Search", border_style="green"))
-        console.input("Press Enter to return...")
-        return
-
-    while True:
-        _render_search_view(
-            "Title Search",
-            "Search by title:",
-            query,
-            rows,
-            "Press Enter for the default view, or type all books to show everything.",
-        )
-        user_input = console.input("[bold #00FFB3]Search title[/bold #00FFB3] (q to back, Enter for default): ").strip()
-
-        if user_input.lower() in ("q", "b"):
-            return
-
-        query = user_input
-        if _is_show_all_query(query):
-            rows = _fetch_books()
-        else:
-            rows = _search_books_by_title(query) if query else _fetch_books()
+    _browse_books(
+        "Title Search",
+        "Search by title:",
+        "Use / to search titles.",
+        _search_books_by_title,
+    )
 
 
 def show_author() -> None:
-    query = ""
-    rows = _fetch_books()
-
-    if not rows:
-        console.clear()
-        console.print(Panel.fit("No books available.", title="Author Search", border_style="green"))
-        console.input("Press Enter to return...")
-        return
-
-    while True:
-        _render_search_view(
-            "Author Search",
-            "Search by author:",
-            query,
-            rows,
-            "Press Enter for the default view, or type all authors to show everything.",
-        )
-        user_input = console.input("[bold #00FFB3]Search author[/bold #00FFB3] (q to back, Enter for default): ").strip()
-
-        if user_input.lower() in ("q", "b"):
-            return
-
-        query = user_input
-        if _is_show_all_query(query):
-            rows = _fetch_books()
-        else:
-            rows = _search_books_by_author(query) if query else _fetch_books()
+    _browse_books(
+        "Author Search",
+        "Search by author:",
+        "Use / to search authors.",
+        _search_books_by_author,
+    )
 
 
 def _map_key(char: str, seq: str = "") -> str:
@@ -297,14 +332,40 @@ def _map_key(char: str, seq: str = "") -> str:
         return "UP"
     if char == "\x1b" and seq == "[B":
         return "DOWN"
+    if char == "\x1b" and seq == "[D":
+        return "LEFT"
+    if char == "\x1b" and seq == "[C":
+        return "RIGHT"
+    if char == "\t":
+        return "TAB"
     if char in ("\r", "\n"):
         return "ENTER"
+    if char in ("/", "s", "S"):
+        return "SEARCH"
     if char in ("q", "Q", "b", "B"):
         return "BACK"
     return "OTHER"
 
 
 def _read_key() -> str:
+    if os.name == "nt":
+        if msvcrt is None:
+            return "OTHER"
+
+        char = msvcrt.getwch()
+        if char in ("\x00", "\xe0"):
+            next_char = msvcrt.getwch()
+            if next_char == "H":
+                return "UP"
+            if next_char == "P":
+                return "DOWN"
+            if next_char == "K":
+                return "LEFT"
+            if next_char == "M":
+                return "RIGHT"
+            return "OTHER"
+        return _map_key(char)
+
     if tty is None or termios is None or not sys.stdin.isatty():
         return "OTHER"
 
@@ -341,6 +402,148 @@ def _fetch_books_by_category(category: str):
             """,
             (category,),
         ).fetchall()
+
+
+def _fetch_books_with_ids() -> list:
+    with db.get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, name, category, author, year
+            FROM books
+            ORDER BY name, author, year
+            """
+        ).fetchall()
+    return rows
+
+
+def _update_book(book_id: int, name: str, category: str, author: str, year: str) -> None:
+    with db.get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE books
+            SET name = ?, category = ?, author = ?, year = ?
+            WHERE id = ?
+            """,
+            (name, category, author, year, book_id),
+        )
+        conn.commit()
+
+
+def _delete_book(book_id: int) -> None:
+    with db.get_connection() as conn:
+        conn.execute("DELETE FROM books WHERE id = ?", (book_id,))
+        conn.commit()
+
+
+def _search_books_for_admin(rows: list, query: str) -> list:
+    normalized_query = _normalize_text(query)
+    query_tokens = normalized_query.split()
+    if not query_tokens:
+        return rows
+
+    filtered_rows = []
+    for row in rows:
+        searchable_text = _normalize_text(
+            f"{row['name']} {row['category']} {row['author']} {row['year']} {row['id']}"
+        )
+        row_tokens = searchable_text.split()
+        if all(any(token in row_token for row_token in row_tokens) for token in query_tokens):
+            filtered_rows.append(row)
+
+    return filtered_rows
+
+
+def _admin_visible_rows(rows: list, selected_book_index: int) -> tuple[list, int]:
+    max_rows = max(3, console.size.height - 20)
+    if len(rows) <= max_rows:
+        return rows, 0
+
+    start = max(0, selected_book_index - (max_rows // 2))
+    end = start + max_rows
+    if end > len(rows):
+        end = len(rows)
+        start = end - max_rows
+
+    return rows[start:end], start
+
+
+def _render_admin_books_view(rows: list, selected_book_index: int, selected_action_index: int, query: str) -> None:
+    console.clear()
+
+    table = Table(show_header=True, header_style="bold #00FFB3", box=box.SIMPLE_HEAVY, expand=True)
+    table.add_column("ID", style="white", no_wrap=True)
+    table.add_column("Title", style="white", no_wrap=False)
+    table.add_column("Category", style="white", no_wrap=False)
+    table.add_column("Author", style="white", no_wrap=False)
+    table.add_column("Year", style="white", no_wrap=False)
+
+    visible_rows, start_index = _admin_visible_rows(rows, selected_book_index)
+
+    if rows:
+        for index, row in enumerate(visible_rows):
+            global_index = start_index + index
+            is_selected = global_index == selected_book_index
+            row_style_prefix = "[bold black on #00FFB3]" if is_selected else ""
+            row_style_suffix = "[/]" if is_selected else ""
+            table.add_row(
+                f"{row_style_prefix}{row['id']}{row_style_suffix}",
+                f"{row_style_prefix}{row['name']}{row_style_suffix}",
+                f"{row_style_prefix}{row['category']}{row_style_suffix}",
+                f"{row_style_prefix}{row['author']}{row_style_suffix}",
+                f"{row_style_prefix}{row['year']}{row_style_suffix}",
+            )
+
+        if len(rows) > len(visible_rows): table.add_row("...", "More books available", "Use ↑↓ to scroll", "", "")
+    else:table.add_row("-", "No books available", "-", "-", "-")
+
+    actions = ["Edit", "Delete", "Back"]
+    action_buttons = []
+    for index, action in enumerate(actions):
+        if index == selected_action_index: action_buttons.append(f"[bold black on #00FFB3] {action} [/]")
+        else: action_buttons.append(f"[white on #1A1A1A] {action} [/]")
+
+    body = Table.grid(padding=(0, 0))
+    query_label = query if query else "(all books)"
+    body.add_row(f"[bold #00FFB3]Search[/bold #00FFB3]: [white]{query_label}[/white]")
+    body.add_row(f"[dim]Showing {len(visible_rows)} of {len(rows)} result(s). Press / to search.[/dim]")
+    body.add_row("")
+    body.add_row(table)
+    body.add_row("")
+    body.add_row(Align.center("   ".join(action_buttons)))
+
+    panel = Panel.fit(body, title="Admin · Books", border_style="#01796F", padding=(1, 1))
+    console.print(Align.center(panel))
+    console.print(Align.center("[dim]Press / then Enter to search | ↑↓ select book | Tab/←/→ select action | Enter confirm | q back[/dim]"))
+
+
+def _show_admin_message(message: str, title: str = "Admin Books") -> None:
+    console.clear()
+    console.print(Panel.fit(message, title=title, border_style="#01796F"))
+    console.input("Press Enter to continue...")
+
+
+def _edit_book_form(book_row) -> None:
+    console.clear()
+    console.print(Panel.fit(f"Editing book ID {book_row['id']}", title="Edit Book", border_style="#01796F"))
+
+    title_value = console.input(f"Title [{book_row['name']}]: ").strip() or str(book_row["name"])
+    category_value = console.input(f"Category [{book_row['category']}]: ").strip() or str(book_row["category"])
+    author_value = console.input(f"Author [{book_row['author']}]: ").strip() or str(book_row["author"])
+    year_value = console.input(f"Year [{book_row['year']}]: ").strip() or str(book_row["year"])
+
+    _update_book(int(book_row["id"]), title_value, category_value, author_value, year_value)
+    _show_admin_message("Book updated successfully.")
+
+
+def _delete_book_confirm(book_row) -> None:
+    console.clear()
+    title = str(book_row["name"])
+    confirm = console.input(f"Delete '{title}'? (y/N): ").strip().lower()
+    if confirm == "y":
+        _delete_book(int(book_row["id"]))
+        _show_admin_message("Book deleted successfully.")
+        return
+    _show_admin_message("Delete cancelled.")
 
 
 def _render_categories_view(categories: list[str], selected_index: int) -> None:
@@ -418,3 +621,41 @@ def show_categories(view: str) -> None:
 
 def show_category_browser() -> None:
     show_categories("Categories")
+
+
+def show_admin_books() -> None:
+    selected_book_index = 0
+    selected_action_index = 0
+    query = ""
+
+    while True:
+        all_rows = _fetch_books_with_ids()
+        rows = _search_books_for_admin(all_rows, query)
+        if rows:
+            selected_book_index = min(selected_book_index, len(rows) - 1)
+        else:
+            selected_book_index = 0
+
+        _render_admin_books_view(rows, selected_book_index, selected_action_index, query)
+        key = _read_key()
+
+        if key == "BACK": return
+        if key == "SEARCH":
+            query = console.input("Search books (title/author/category/year/id, Enter for all): ").strip()
+            selected_book_index = 0
+        elif key == "UP" and rows: selected_book_index = (selected_book_index - 1) % len(rows)
+        elif key == "DOWN" and rows: selected_book_index = (selected_book_index + 1) % len(rows)
+        elif key in ("TAB", "RIGHT"): selected_action_index = (selected_action_index + 1) % 3
+        elif key == "LEFT": selected_action_index = (selected_action_index - 1) % 3
+        elif key == "ENTER":
+            if selected_action_index == 2:
+                return
+            if not rows:
+                _show_admin_message("There are no books to manage yet.")
+                continue
+
+            selected_book = rows[selected_book_index]
+            if selected_action_index == 0:
+                _edit_book_form(selected_book)
+            elif selected_action_index == 1:
+                _delete_book_confirm(selected_book)
