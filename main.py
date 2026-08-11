@@ -30,6 +30,7 @@ from library.books import show_author
 from library.books import show_title
 from library.books import show_categories
 from library.books import show_admin_books
+from library.users import show_admin_users
 from database.seed_books import seed_books
 from ui import visuals
 from about import about
@@ -238,6 +239,8 @@ def run_menu() -> None:
                         about.show_made_by()
                     elif MENUBOOKS[current_group]["name"] == "Admin" and topic == "Books":
                         show_admin_books()
+                    elif MENUBOOKS[current_group]["name"] == "Admin" and topic == "Users":
+                        show_admin_users()
                     elif MENUBOOKS[current_group]["name"] == "Admin":
                         show_placeholder(f"Admin → {topic}")
                     else:
