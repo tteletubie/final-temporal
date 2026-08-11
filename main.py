@@ -26,9 +26,9 @@ from rich.table import Table
 
 # 3. Local Modules
 from auth import credentials
-from author import show_author
-from books import show_title
-from categories import show_categories
+from library.books import show_author
+from library.books import show_title
+from library.books import show_categories
 from database.seed_books import seed_books
 from ui import visuals
 from about import about
