@@ -169,6 +169,7 @@ def run_menu() -> None:
     view = "groups"
     selected = 0
     current_group = 0
+    logged_username = None
 
     while True:
         if view == "groups":
@@ -213,11 +214,12 @@ def run_menu() -> None:
                     if topic == "Categories":
                         show_categories(topic)
                     elif topic == "Login":
-                        logged_username = credentials.login()
-                        if logged_username:
+                        username = credentials.login()
+                        if username:##YA QUEDO BOORROW PERO CREO QUE DARA PROBLEMAS STATUS
                             # Here you can add the authentication logic
+                            logged_username = username
                             show_placeholder(
-                                f"Attempting to log in as {logged_username}..."
+                                f"Looged in as {logged_username}..."
                             )      
                     elif topic == "Sign Up":
                         credentials.sign_up()
@@ -228,9 +230,9 @@ def run_menu() -> None:
                             f"User {user['username']} created with role {role}"
                         )"""
                     elif topic == "Title":
-                        show_title()
+                        show_title(logged_username)
                     elif topic == "Author":
-                        show_author()
+                        show_author(logged_username)
                     elif topic == "Staff":
                         about.show_staff()
                     elif topic == "Rules":

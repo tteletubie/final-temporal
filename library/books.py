@@ -23,6 +23,7 @@ from rich.table import Table
 
 # 3. Local Modules
 from database import database as db
+from datetime import date
 from ui import visuals
 
 
@@ -63,7 +64,7 @@ def _is_show_all_query(query: str) -> bool:
 
 def _fetch_books() -> list:
     with db.get_connection() as conn:
-        rows = conn.execute("SELECT name, category, author, year FROM books ORDER BY name, author, year").fetchall()
+        rows = conn.execute("SELECT id, name, category, author, year FROM books ORDER BY name, author, year").fetchall()
     return rows
 
 
@@ -202,20 +203,20 @@ def _render_normal_books_view(
     query: str,
     rows: list,
     selected_index: int,
+    selected_action_index: int,
     default_hint: str,
 ) -> None:
     console.clear()
 
     visible_rows, start_index = _normal_visible_rows(rows, selected_index)
     query_text = query if query else "(all books)"
-
     top = Table.grid(padding=(0, 0))
     top.add_row(f"[bold #00FFB3]{query_label}[/bold #00FFB3] [white]{query_text}[/white]")
     top.add_row(f"[dim]{default_hint}[/dim]")
     top.add_row(f"[dim]Showing {len(visible_rows)} of {len(rows)} result(s). Press / to search.[/dim]")
-    console.print(Align.center(Panel.fit(top, border_style="#01796F", title=title)))
 
-    table = Table(show_header=True, header_style="bold #00FFB3", box=box.SIMPLE_HEAVY, expand=True)
+    console.print(Align.center(Panel.fit(top, border_style="#01796F", title=title)))
+    table = Table(show_header=True, header_style="bold #00FFB3", box=box.SIMPLE_HEAVY, expand=True,)
     table.add_column("Title", style="white", no_wrap=False)
     table.add_column("Category", style="white", no_wrap=False)
     table.add_column("Author", style="white", no_wrap=False)
@@ -224,24 +225,37 @@ def _render_normal_books_view(
     if rows:
         for index, row in enumerate(visible_rows):
             global_index = start_index + index
-            is_selected = global_index == selected_index
-            row_style_prefix = "[bold black on #00FFB3]" if is_selected else ""
-            row_style_suffix = "[/]" if is_selected else ""
-
+            is_selected = (global_index == selected_index)
+            if is_selected:
+                prefix = "[bold black on #00FFB3]"
+                suffix = "[/]"
+            else:
+                prefix = ""
+                suffix = ""
             table.add_row(
-                f"{row_style_prefix}{row['name']}{row_style_suffix}",
-                f"{row_style_prefix}{row['category']}{row_style_suffix}",
-                f"{row_style_prefix}{row['author']}{row_style_suffix}",
-                f"{row_style_prefix}{row['year']}{row_style_suffix}",
+                f"{prefix}{row['name']}{suffix}",
+                f"{prefix}{row['category']}{suffix}",
+                f"{prefix}{row['author']}{suffix}",
+                f"{prefix}{row['year']}{suffix}",
             )
-
         if len(rows) > len(visible_rows):
-            table.add_row("...", "More books available", "Use ↑↓ to scroll", "")
+            table.add_row("...", "More books available", "Use ↑↓ to scroll","")
     else:
-        table.add_row("No books found", "-", "-", "-")
+        table.add_row("No books found", "-", "-", "-",)
 
-    console.print(Align.center(Panel.fit(table, border_style="#01796F", box=box.ROUNDED, padding=(0, 1))))
-    console.print(Align.center("[dim]Press / to search | ↑↓ scroll | q back[/dim]"))
+    actions = ["Borrow", "Back"]
+    action_buttons = []
+    for index, action in enumerate(actions):
+        if index == selected_action_index:
+            action_buttons.append(f"[bold black on #00FFB3] {action} [/]")
+        else:
+            action_buttons.append(f"[white on #1A1A1A] {action} [/]")
+    body = Table.grid(padding=(0, 0))
+    body.add_row(table)
+    body.add_row("")
+    body.add_row(Align.center("   ".join(action_buttons)))
+    console.print(Align.center(Panel.fit(body, border_style="#01796F", box=box.ROUNDED, padding=(0, 1),)))
+    console.print(Align.center("[dim]Press / to search | ↑↓ select book | Tab/←/→ select action | Enter confirm | q back[/dim]"))
 
 
 def _browse_books(
@@ -249,18 +263,26 @@ def _browse_books(
     query_label: str,
     default_hint: str,
     search_fn,
+    username: str | None = None,
 ) -> None:
     query = ""
     selected_index = 0
+    selected_action_index = 0
 
     while True:
-        rows = _fetch_books() if not query else search_fn(query)
+        if not query:
+            rows = _fetch_books()
+        else:
+            rows = search_fn(query)
         if rows:
             selected_index = min(selected_index, len(rows) - 1)
         else:
             selected_index = 0
 
-        _render_normal_books_view(title, query_label, query, rows, selected_index, default_hint)
+        selected_action_index = min(selected_action_index, 1)
+
+        _render_normal_books_view(title, query_label, query, rows, selected_index, selected_action_index, default_hint)
+
         key = _read_key()
 
         if key == "BACK":
@@ -268,11 +290,31 @@ def _browse_books(
         if key == "SEARCH":
             query = console.input("Search (Enter for all books): ").strip()
             selected_index = 0
-        elif key == "UP" and rows:
+            continue
+        if key == "UP" and rows:
             selected_index = (selected_index - 1) % len(rows)
-        elif key == "DOWN" and rows:
+            continue
+        if key == "DOWN" and rows:
             selected_index = (selected_index + 1) % len(rows)
-
+            continue
+        if key in ("TAB", "RIGHT"):
+            selected_action_index = (selected_action_index + 1) % 2
+            continue
+        if key == "LEFT":
+            selected_action_index = (selected_action_index - 1) % 2
+            continue
+        if key == "ENTER":
+            if selected_action_index == 1:
+                return
+            if not rows:
+                _show_admin_message("There are no books available.", title="Books")
+                continue
+            selected_book = rows[selected_index]
+            if selected_action_index == 0:
+                if not username:
+                    _show_admin_message("You must be logged in to borrow a book.", title="Borrow")
+                    continue
+                _borrow_book_confirm(selected_book, username)
 
 def _render_search_view(title: str, query_label: str, query: str, rows: list, help_message: str) -> None:
     console.clear()
@@ -300,30 +342,33 @@ def _render_search_view(title: str, query_label: str, query: str, rows: list, he
         console.print(Align.center("[dim]Showing the first page only. Type all to show every result.[/dim]"))
 
 
-def show_category() -> None:
+def show_category(username: str | None = None) -> None:
     _browse_books(
         "Search by Category",
         "Search by category:",
         "Use / to search categories.",
         _search_books_by_category,
+        username,
     )
 
 
-def show_title() -> None:
+def show_title(username: str | None = None) -> None:
     _browse_books(
         "Title Search",
         "Search by title:",
         "Use / to search titles.",
         _search_books_by_title,
+        username,
     )
 
 
-def show_author() -> None:
+def show_author(username: str | None = None) -> None:
     _browse_books(
         "Author Search",
         "Search by author:",
         "Use / to search authors.",
         _search_books_by_author,
+        username,
     )
 
 
@@ -415,6 +460,67 @@ def _fetch_books_with_ids() -> list:
         ).fetchall()
     return rows
 
+def _get_user_id(username):
+    with db.get_connection() as conn:
+        row = conn.execute(
+            "SELECT id FROM users WHERE username = ?",
+            (username,)
+        ).fetchone()
+
+    return row["id"] if row else None
+
+
+def _get_book_status(book_id: int):
+    with db.get_connection() as conn:
+        row = conn.execute("SELECT id_book, status, id_user, date_servive, date_return FROM book_status WHERE id_book = ?", (book_id,)).fetchone()
+    return row
+
+
+def _borrow_book(book_id: int, username: str) -> tuple[bool, str]:
+    user_id = _get_user_id(username)
+    if user_id is None:
+        return False, "You must be logged in to borrow a book."
+    with db.get_connection() as conn:
+        book = conn.execute("SELECT id, name FROM books WHERE id = ?", (book_id,)).fetchone()
+        if book is None:
+            return False, "Book not found."
+        status = conn.execute("SELECT status, id_user FROM book_status WHERE id_book = ?", (book_id,)).fetchone()
+        if status and status["status"] == "borrowed":
+            return False, "This book is currently borrowed."
+        today = date.today().isoformat()
+        if status is None:
+            conn.execute("INSERT INTO book_status(id_book, status, id_user, date_servive, date_return) VALUES (?, ?, ?, ?, NULL)", (book_id, "borrowed", user_id, today,))
+        else:
+            conn.execute("UPDATE book_status SET status = ?, id_user = ?, date_servive = ?, date_return = NULL WHERE id_book = ?", ("borrowed", user_id, today, book_id))
+        conn.commit()
+
+    return True, f"'{book['name']}' borrowed successfully."
+
+def _borrow_book_confirm(book_row, username: str) -> None:
+    console.clear()
+    title = str(book_row["name"])
+    panel = Panel.fit(f"Borrow [bold #00FFB3]{visuals.title}[/bold #00FFB3]?", title="Borrow Book", border_style="#01796F")
+    console.print(Align.center(panel))
+    confirm = console.input("\nBorrow this book? (y/N): ").strip().lower()
+    if confirm != "y":
+        console.print(Align.center("[dim]Borrow cancelled.[/dim]"))
+        console.input("\nPress Enter to continue...")
+        return
+    success, message = _borrow_book(int(book_row["id"]), username)
+    if success:
+        console.print(
+            Align.center(
+                f"[bold #00FFB3]{message}[/bold #00FFB3]"
+            )
+        )
+    else:
+        console.print(
+            Align.center(
+                f"[bold red]{message}[/bold red]"
+            )
+        )
+
+    console.input("\nPress Enter to continue...")
 
 def _update_book(book_id: int, name: str, category: str, author: str, year: str) -> None:
     with db.get_connection() as conn:
