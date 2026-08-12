@@ -897,6 +897,192 @@ def _admin_dashboard() -> None:
         console.input("Press Enter to continue...")
 
 
+def _export_book_pdf(book_row) -> None:
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.units import inch
+    except Exception as e:
+        _show_admin_message(f"PDF generation library missing: {e}")
+        return
+
+    book_id = int(book_row["id"])
+    with db.get_connection() as conn:
+        bs = conn.execute("SELECT status, id_user, date_servive, date_due, date_return FROM book_status WHERE id_book = ?", (book_id,)).fetchone()
+        user = None
+        if bs and bs[1]:
+            user = conn.execute("SELECT username, name, lastname FROM users WHERE id = ?", (bs[1],)).fetchone()
+
+    filename = f"book_{book_id}_report.pdf"
+    c = canvas.Canvas(filename, pagesize=letter)
+    width, height = letter
+
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(1 * inch, height - 1 * inch, f"Book Report: {book_row['name']}")
+
+    c.setFont("Helvetica", 12)
+    c.drawString(1 * inch, height - 1.5 * inch, f"Author: {book_row.get('author', '-')}")
+    c.drawString(1 * inch, height - 1.8 * inch, f"Category: {book_row.get('category', '-')}")
+    c.drawString(1 * inch, height - 2.1 * inch, f"Year: {book_row.get('year', '-')}")
+
+    y = height - 2.6 * inch
+    if bs:
+        c.drawString(1 * inch, y, f"Status: {bs['status']}")
+        y -= 0.3 * inch
+        c.drawString(1 * inch, y, f"Borrowed by: {user['username'] if user else '-'}")
+        y -= 0.3 * inch
+        c.drawString(1 * inch, y, f"Date Borrowed: {bs['date_servive'] or '-'}")
+        y -= 0.3 * inch
+        c.drawString(1 * inch, y, f"Due Date: {bs['date_due'] or '-'}")
+        y -= 0.3 * inch
+        c.drawString(1 * inch, y, f"Date Returned: {bs['date_return'] or '-'}")
+    else:
+        c.drawString(1 * inch, y, "Status: available")
+
+    c.showPage()
+    c.save()
+
+    _show_admin_message(f"PDF exported: {filename}")
+
+
+def _export_all_borrowed_pdf() -> None:
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet
+    except Exception as e:
+        _show_admin_message(f"PDF generation library missing: {e}")
+        return
+
+    with db.get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT b.id, b.name, COALESCE(bs.status, 'available') AS status, u.username, bs.date_servive, bs.date_due, bs.date_return
+            FROM books b
+            LEFT JOIN book_status bs ON bs.id_book = b.id
+            LEFT JOIN users u ON u.id = bs.id_user
+            WHERE bs.status = 'borrowed'
+            ORDER BY bs.date_due IS NULL, bs.date_due
+            """
+        ).fetchall()
+
+    filename = "borrowed_books_report.pdf"
+    doc = SimpleDocTemplate(filename, pagesize=letter)
+    elems = []
+    styles = getSampleStyleSheet()
+    elems.append(Paragraph("Borrowed Books Report", styles["Title"]))
+    elems.append(Spacer(1, 12))
+
+    data = [["ID", "Title", "Borrower", "Borrowed", "Due", "Overdue"]]
+    today = date.today()
+    for row in rows:
+        due = row[5]
+        overdue = "No"
+        if due:
+            try:
+                due_date = date.fromisoformat(due)
+                overdue = "Yes" if today > due_date else "No"
+            except Exception:
+                overdue = "Unknown"
+        data.append([str(row[0]), str(row[1]), str(row[3] or "-"), str(row[4] or "-"), str(due or "-"), overdue])
+
+    table = RLTable(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#00FFB3")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+    ]))
+
+    elems.append(table)
+    doc.build(elems)
+
+    _show_admin_message(f"PDF exported: {filename}")
+
+
+def _generate_full_pdf_report() -> None:
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer, PageBreak
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet
+    except Exception as e:
+        _show_admin_message(f"PDF generation library missing: {e}")
+        return
+
+    with db.get_connection() as conn:
+        users = conn.execute("SELECT id, username, name, lastname, birthday, job, role, offences FROM users ORDER BY id").fetchall()
+        books = conn.execute("SELECT id, name, category, author, year, borrow_count FROM books ORDER BY id").fetchall()
+        statuses = conn.execute("SELECT id_book, status, id_user, date_servive, date_due, date_return FROM book_status ORDER BY id_book").fetchall()
+        offences = conn.execute("SELECT id, id_user, type, description FROM offences ORDER BY id").fetchall()
+
+    filename = "full_library_report.pdf"
+    doc = SimpleDocTemplate(filename, pagesize=letter)
+    elems = []
+    styles = getSampleStyleSheet()
+
+    elems.append(Paragraph("Library Full Report", styles["Title"]))
+    elems.append(Spacer(1, 12))
+
+    elems.append(Paragraph("Users", styles["Heading2"]))
+    data = [["ID", "Username", "Name", "Lastname", "Birthday", "Job", "Role", "Offences"]]
+    for u in users:
+        data.append([str(u[0]), str(u[1]), str(u[2] or ""), str(u[3] or ""), str(u[4] or ""), str(u[5] or ""), str(u[6] or ""), str(u[7] or "")])
+    table = RLTable(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#00FFB3")),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+    ]))
+    elems.append(table)
+    elems.append(PageBreak())
+
+    # Books
+    elems.append(Paragraph("Books", styles["Heading2"]))
+    data = [["ID", "Title", "Category", "Author", "Year", "Borrow Count"]]
+    for b in books:
+        data.append([str(b[0]), str(b[1]), str(b[2] or ""), str(b[3] or ""), str(b[4] or ""), str(b[5] or "0")])
+    table = RLTable(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#00FFB3")),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+    ]))
+    elems.append(table)
+    elems.append(PageBreak())
+
+    # Book statuses
+    elems.append(Paragraph("Book Statuses", styles["Heading2"]))
+    data = [["Book ID", "Status", "User ID", "Date Borrowed", "Date Due", "Date Returned"]]
+    for s in statuses:
+        data.append([str(s[0]), str(s[1] or ""), str(s[2] or ""), str(s[3] or ""), str(s[4] or ""), str(s[5] or "")])
+    table = RLTable(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#00FFB3")),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+    ]))
+    elems.append(table)
+    elems.append(PageBreak())
+
+    # Offences
+    elems.append(Paragraph("Offences", styles["Heading2"]))
+    data = [["ID", "User ID", "Type", "Description"]]
+    for o in offences:
+        data.append([str(o[0]), str(o[1] or ""), str(o[2] or ""), str(o[3] or "")])
+    table = RLTable(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#00FFB3")),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+    ]))
+    elems.append(table)
+
+    try:
+        doc.build(elems)
+    except Exception as e:
+        _show_admin_message(f"Failed to build PDF: {e}")
+        return
+
+    _show_admin_message(f"Full PDF exported: {filename}")
+
+
 def _render_categories_view(categories: list[str], selected_index: int) -> None:
     console.clear()
 

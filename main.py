@@ -30,6 +30,7 @@ from library.books import show_author
 from library.books import show_title
 from library.books import show_categories
 from library.books import show_admin_books
+from library.books import _generate_full_pdf_report
 from library.users import show_admin_users
 from database.seed_books import seed_books
 from ui import visuals
@@ -48,7 +49,7 @@ def handle_sigint(signum, frame) -> None:
 MENUBOOKS = [
     { "name": " 📚 Books ", "topics": ["Title", "Categories", "Author"], "color": "green" },
     { "name": "👤 Login / Sign In", "topics": ["Login", "Sign Up"], "color": "cyan" },
-    { "name": "🔒 Admin", "topics": ["Books", "Users"], "color": "dark_orange3" },
+    { "name": "🔒 Admin", "topics": ["Books", "Users", "Generate PDF"], "color": "dark_orange3" },
     { "name": "ℹ️ About", "topics": ["Staff", "Rules", "Made by"], "color": "magenta" }
 ]
 
@@ -277,6 +278,11 @@ def run_menu() -> None:
                         show_admin_books(current_user["role"] if current_user else "user")
                     elif "Admin" in group_name and topic == "Users":
                         show_admin_users(current_user["role"] if current_user else "user")
+                    elif "Admin" in group_name and topic == "Generate PDF":
+                        try:
+                            _generate_full_pdf_report()
+                        except Exception:
+                            show_placeholder("Failed to generate PDF report.")
                     else:
                         show_placeholder(topic)
                     selected = 0
@@ -306,5 +312,15 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, handle_sigint)
     try:
         main()
+    except visuals.ExitApp:
+        console.clear()
+        visuals.big_title("BOOKWORMS")
+        console.print(
+            Align.center(
+                Panel("📖 ¡THANK YOU FOR USING WORMBOOKS! 📖", border_style="#01796F")
+            )
+        )
+        console.print(Align.center("[dim]Press Enter or wait 5s to exit...[/dim]"))
+        wait_for_exit(5)
     except (KeyboardInterrupt, visuals.UserCancelledError):
         visuals.show_cancelled_panel(console)
