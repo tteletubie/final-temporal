@@ -23,7 +23,7 @@ from rich.table import Table
 
 # 3. Local Modules
 from database import database as db
-from datetime import date
+from datetime import date, timedelta
 from ui import visuals
 
 
@@ -495,7 +495,7 @@ def _get_user_id(username):
 
 def _get_book_status(book_id: int):
     with db.get_connection() as conn:
-        row = conn.execute("SELECT id_book, status, id_user, date_servive, date_return FROM book_status WHERE id_book = ?", (book_id,)).fetchone()
+        row = conn.execute("SELECT id_book, status, id_user, date_servive, date_return, date_due FROM book_status WHERE id_book = ?", (book_id,)).fetchone()
     return row
 
 
@@ -511,11 +511,13 @@ def _borrow_book(book_id: int, username: str) -> tuple[bool, str]:
         if status and status["status"] == "borrowed":
             return False, "This book is currently borrowed."
         today = date.today().isoformat()
+        # default due date: 14 days from today
+        due_date = (date.today() + timedelta(days=14)).isoformat()
         conn.execute("UPDATE books SET borrow_count = borrow_count + 1 WHERE id = ?", (book_id,))
         if status is None:
-            conn.execute("INSERT INTO book_status(id_book, status, id_user, date_servive, date_return) VALUES (?, ?, ?, ?, NULL)", (book_id, "borrowed", user_id, today,))
+            conn.execute("INSERT INTO book_status(id_book, status, id_user, date_servive, date_return, date_due) VALUES (?, ?, ?, ?, NULL, ?)", (book_id, "borrowed", user_id, today, due_date))
         else:
-            conn.execute("UPDATE book_status SET status = ?, id_user = ?, date_servive = ?, date_return = NULL WHERE id_book = ?", ("borrowed", user_id, today, book_id))
+            conn.execute("UPDATE book_status SET status = ?, id_user = ?, date_servive = ?, date_return = NULL, date_due = ? WHERE id_book = ?", ("borrowed", user_id, today, due_date, book_id))
         conn.commit()
 
     return True, f"'{book['name']}' borrowed successfully."
@@ -551,19 +553,26 @@ def _unborrow_book(book_id: int) -> tuple[bool, str]:
     try:
         with db.get_connection() as conn:
             row = conn.execute("SELECT status FROM book_status WHERE id_book = ?", (book_id,)).fetchone()
-            if not row:
+            if not row or str(row["status"]).lower() != "borrowed":
                 return False, "This book is already available."
+            
+            conn.execute(
+                "UPDATE books SET borrow_count = CASE WHEN borrow_count > 0 THEN borrow_count - 1 ELSE 0 END WHERE id = ?",
+                (book_id,)
+            )
 
+            today = date.today().isoformat()
             conn.execute(
                 """
                 UPDATE book_status
                 SET status = 'available',
                     id_user = NULL,
                     date_servive = NULL,
-                    date_return = NULL
+                    date_return = ?,
+                    date_due = NULL
                 WHERE id_book = ?
                 """,
-                (book_id,)
+                (today, book_id)
             )
 
             conn.commit()
@@ -754,7 +763,7 @@ def _render_admin_books_view(rows: list, selected_book_index: int, selected_acti
         if len(rows) > len(visible_rows): table.add_row("...", "More books available", "Use ↑↓ to scroll", "", "")
     else:table.add_row("-", "No books available", "-", "-", "-")
 
-    actions = ["Edit", "Delete", "Add Book", "Back"]
+    actions = ["Edit", "Delete", "Add Book", "Dashboard", "Back"]
     action_buttons = []
     for index, action in enumerate(actions):
         if index == selected_action_index: action_buttons.append(f"[bold black on #00FFB3] {action} [/]")
@@ -818,6 +827,74 @@ def _delete_book_confirm(book_row) -> None:
         _show_admin_message("Book deleted successfully.")
         return
     _show_admin_message("Delete cancelled.")
+
+
+def _admin_dashboard() -> None:
+    console.clear()
+    rows = db.get_connection().execute(
+        """
+        SELECT b.id, b.name, COALESCE(bs.status, 'available') AS status, u.username, bs.date_servive, bs.date_due, bs.date_return
+        FROM books b
+        LEFT JOIN book_status bs ON bs.id_book = b.id
+        LEFT JOIN users u ON u.id = bs.id_user
+        WHERE bs.status = 'borrowed'
+        ORDER BY bs.date_due IS NULL, bs.date_due
+        """
+    ).fetchall()
+
+    table = Table(show_header=True, header_style="bold #00FFB3", box=box.SIMPLE_HEAVY, expand=True)
+    table.add_column("ID", style="white", no_wrap=True)
+    table.add_column("Title", style="white")
+    table.add_column("Borrower", style="white")
+    table.add_column("Borrowed", style="white")
+    table.add_column("Due", style="white")
+    table.add_column("Overdue", style="white")
+
+    today = date.today()
+    if rows:
+        for row in rows:
+            due = row[5]
+            overdue = "No"
+            if due:
+                try:
+                    due_date = date.fromisoformat(due)
+                    overdue = "Yes" if today > due_date else "No"
+                except Exception:
+                    overdue = "Unknown"
+
+            table.add_row(str(row[0]), str(row[1]), str(row[3] or "-"), str(row[4] or "-"), str(due or "-"), overdue)
+    else:
+        table.add_row("-", "No borrowed books", "-", "-", "-", "-")
+
+    console.print(Align.center(Panel.fit(table, title="Admin Dashboard · Borrowed Books", border_style="#01796F")))
+    console.print(Align.center("[dim]Press b to go back[/dim]"))
+
+    try:
+        if os.name == "nt":
+            import msvcrt
+            while True:
+                ch = msvcrt.getwch()
+                if ch.lower() == "b":
+                    return
+        else:
+            if not sys.stdin.isatty():
+                console.input("Press Enter to continue...")
+                return
+
+            fd = sys.stdin.fileno()
+            old = termios.tcgetattr(fd)
+            try:
+                tty.setraw(fd)
+                while True:
+                    ch = sys.stdin.read(1)
+                    if not ch:
+                        continue
+                    if ch.lower() == "b":
+                        return
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old)
+    except Exception:
+        console.input("Press Enter to continue...")
 
 
 def _render_categories_view(categories: list[str], selected_index: int) -> None:
@@ -918,15 +995,22 @@ def show_admin_books(current_role: str = "user") -> None:
         key = _read_key()
 
         if key == "BACK": return
+        if key in ("d", "D"):
+            _export_all_borrowed_pdf()
+            continue
+        if key in ("p", "P") and rows:
+            selected_book = rows[selected_book_index]
+            _export_book_pdf(selected_book)
+            continue
         if key == "SEARCH":
             query = console.input("Search books (title/author/category/year/id, Enter for all): ").strip()
             selected_book_index = 0
         elif key == "UP" and rows: selected_book_index = (selected_book_index - 1) % len(rows)
         elif key == "DOWN" and rows: selected_book_index = (selected_book_index + 1) % len(rows)
-        elif key in ("TAB", "RIGHT"): selected_action_index = (selected_action_index + 1) % 4
-        elif key == "LEFT": selected_action_index = (selected_action_index - 1) % 4
+        elif key in ("TAB", "RIGHT"): selected_action_index = (selected_action_index + 1) % 5
+        elif key == "LEFT": selected_action_index = (selected_action_index - 1) % 5
         elif key == "ENTER":
-            if selected_action_index == 3:
+            if selected_action_index == 4:
                 return
             if not rows:
                 _show_admin_message("There are no books to manage yet.")
@@ -939,3 +1023,5 @@ def show_admin_books(current_role: str = "user") -> None:
                 _delete_book_confirm(selected_book)
             elif selected_action_index == 2:
                 _add_book_form()
+            elif selected_action_index == 3:
+                _admin_dashboard()

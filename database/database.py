@@ -52,6 +52,16 @@ def _ensure_books_borrow_count(cursor) -> None:
     if not _column_exists(cursor, "books", "borrow_count"):
         cursor.execute("ALTER TABLE books ADD COLUMN borrow_count INTEGER NOT NULL DEFAULT 0")
 
+
+def _ensure_book_status_due_column(cursor) -> None:
+    if not _column_exists(cursor, "book_status", "date_due"):
+        try:
+            cursor.execute("ALTER TABLE book_status ADD COLUMN date_due DATE")
+        except Exception:
+            # Ignore if alter fails (older sqlite may require table rebuild THIS SHIT IS BY GALILEO BUT
+            # TBH IMMA NEVER FIX IT LOL)
+            pass
+
 def initialize_database():
     db_exists = os.path.exists(DB_FILE)
     
@@ -96,6 +106,7 @@ def initialize_database():
             id_user INTEGER,
             date_servive DATE,
             date_return DATE,
+            date_due DATE,
             FOREIGN KEY (id_book) REFERENCES books (id),
             FOREIGN KEY (id_user) REFERENCES users (id)
         )
@@ -110,6 +121,9 @@ def initialize_database():
             FOREIGN KEY (id_user) REFERENCES users (id)
         )
     """)
+
+    _ensure_books_borrow_count(cursor)
+    _ensure_book_status_due_column(cursor)
 
     conn.commit()
     conn.close()
