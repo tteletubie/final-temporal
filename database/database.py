@@ -1,8 +1,16 @@
-import sqlite3
+# 1. Standard Libraries
 import os
+import sqlite3
 
+# 2. Third-Party Libraries
+from rich.console import Console
+
+# 3. Local Modules
 from database.seed_books import seed_books
 from database.seed_users import seed_users
+
+# Create console instance
+console = Console()
 
 DB_FILE = os.path.join(os.path.dirname(__file__), 'database.db')
 
@@ -41,6 +49,8 @@ def _ensure_bootstrap_admin(cursor) -> None:
         cursor.execute("UPDATE users SET role = 'admin' WHERE id = ?", (first_user[0],))
 
 def initialize_database():
+    db_exists = os.path.exists(DB_FILE)
+    
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -97,11 +107,11 @@ def initialize_database():
     conn.commit()
     conn.close()
 
-    # Automatically seed data whenever database is initialized
-    print("Initializing database seeds...")
-    seed_books(get_connection())
-    seed_users(get_connection())
-    print("Database initialization and seeding complete.")
+    if not db_exists:
+        console.print("[bold cyan]⚡ [DATABASE][/bold cyan] Database not found. Initializing seeds...")
+        seed_books(get_connection())
+        seed_users(get_connection())
+        console.print("[bold green]✨ [DATABASE][/bold green] Initialization and seeding complete successfully! [bold magenta]🚀[/bold magenta]")
 
 if __name__ == '__main__':
     initialize_database()
