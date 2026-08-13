@@ -188,13 +188,36 @@ def run_menu() -> None:
             books_copy = [g for g in books_copy if g["name"] != "Admin"]
             
         return books_copy
+    def _get_dynamic_menubooks():
+        books_copy = [group.copy() for group in MENUBOOKS]
+        
+        if current_user:
+            # Filter out Login / Sign In when logged in
+            books_copy = [g for g in books_copy if g["name"] != "Login / Sign In"]
+            # Insert Logout right AFTER About
+            logout_group = { "name": "Log Out", "topics": ["Confirm Log Out"], "color": "red" }
+            about_index = next((i for i, g in enumerate(books_copy) if g["name"] == "About"), -1)
+            if about_index != -1:
+                books_copy.insert(about_index + 1, logout_group)
+            else:
+                books_copy.append(logout_group)
+        
+        if not (current_user and current_user.get("role") == "admin"):
+            books_copy = [g for g in books_copy if g["name"] != "Admin"]
+            
+        return books_copy
 
     while True:
         current_menubooks = _get_dynamic_menubooks()
 
+        current_menubooks = _get_dynamic_menubooks()
+
         if view == "groups":
             group_options = [group["name"] for group in current_menubooks] + ["◄ Exit"]
+            group_options = [group["name"] for group in current_menubooks] + ["◄ Exit"]
             selected = min(selected, len(group_options) - 1)
+            active_color = current_menubooks[selected]["color"] if selected < len(current_menubooks) else "blue"
+            draw_menu("🐛 MENU 🐛", group_options, active_color, selected)
             active_color = current_menubooks[selected]["color"] if selected < len(current_menubooks) else "blue"
             draw_menu("🐛 MENU 🐛", group_options, active_color, selected)
             key = read_key()
@@ -209,7 +232,16 @@ def run_menu() -> None:
                 if selected == len(group_options) - 1:
                     break
                 current_group = selected
+                current_group = selected
                 selected = 0
+                
+                # If they clicked "Log Out" directly from the main menu list
+                if current_menubooks[current_group]["name"] == "Log Out":
+                    current_user = None
+                    show_placeholder("Successfully logged out!")
+                    view = "groups"
+                else:
+                    view = "topics"
                 
                 # If they clicked "Log Out" directly from the main menu list
                 if current_menubooks[current_group]["name"] == "Log Out":
@@ -220,7 +252,10 @@ def run_menu() -> None:
                     view = "topics"
         else:
             topics = current_menubooks[current_group]["topics"]
+            topics = current_menubooks[current_group]["topics"]
             topic_options = topics + ["← Back"]
+            color = current_menubooks[current_group]["color"]
+            draw_menu(current_menubooks[current_group]["name"], topic_options, color, selected)
             color = current_menubooks[current_group]["color"]
             draw_menu(current_menubooks[current_group]["name"], topic_options, color, selected)
             key = read_key()
@@ -242,18 +277,19 @@ def run_menu() -> None:
                     topic = topics[selected]
                     group_name = current_menubooks[current_group]["name"]
                     
+                    group_name = current_menubooks[current_group]["name"]
+                    
                     if topic == "Categories":
                         show_categories(topic)
                     elif topic == "Login":
                         authenticated_user = credentials.login()
                         if authenticated_user:
                             current_user = authenticated_user
-                            show_placeholder(f"Looged in as {current_user['username']}...")      
+                            show_placeholder(
+                                f"Looged in as {current_user['username']}..."
+                            )      
                     elif topic == "Sign Up":
-                        authenticated_user = credentials.sign_up()
-                        if authenticated_user:
-                            current_user = authenticated_user
-                            show_placeholder(f"Logged in as {current_user['username']}...")
+                        credentials.sign_up()
                         """
                         role, user = credentials.sign_up()
                         # Here you can add the user creation logic
