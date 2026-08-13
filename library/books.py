@@ -23,7 +23,7 @@ from rich.table import Table
 
 # 3. Local Modules
 from database import database as db
-from datetime import date
+from datetime import date, timedelta
 from ui import visuals
 
 
@@ -64,7 +64,7 @@ def _is_show_all_query(query: str) -> bool:
 
 def _fetch_books() -> list:
     with db.get_connection() as conn:
-        rows = conn.execute(
+        return conn.execute(
             """
             SELECT
                 b.id,
@@ -72,6 +72,7 @@ def _fetch_books() -> list:
                 b.category,
                 b.author,
                 b.year,
+                b.borrow_count,
                 bs.id_user,
                 bs.status
             FROM books b
@@ -236,13 +237,14 @@ def _render_normal_books_view(
     table.add_column("Category", style="white", no_wrap=False)
     table.add_column("Author", style="white", no_wrap=False)
     table.add_column("Year", style="white", no_wrap=False)
+    table.add_column("Borrowed", style="white", no_wrap=True)
 
     if rows:
         for index, row in enumerate(visible_rows):
             global_index = start_index + index
             prefix = "[bold black on #00FFB3]" if global_index == selected_index else ""
             suffix = "[/]" if global_index == selected_index else ""
-            table.add_row(f"{prefix}{row['name']}{suffix}", f"{prefix}{row['category']}{suffix}", f"{prefix}{row['author']}{suffix}", f"{prefix}{row['year']}{suffix}")
+            table.add_row(f"{prefix}{row['name']}{suffix}", f"{prefix}{row['category']}{suffix}", f"{prefix}{row['author']}{suffix}", f"{prefix}{row['year']}{suffix}", f"{prefix}{row['borrow_count']}{suffix}")
         if len(rows) > len(visible_rows):
             table.add_row("...", "More books available", "Use ↑↓ to scroll", "")
     else:
@@ -493,7 +495,7 @@ def _get_user_id(username):
 
 def _get_book_status(book_id: int):
     with db.get_connection() as conn:
-        row = conn.execute("SELECT id_book, status, id_user, date_servive, date_return FROM book_status WHERE id_book = ?", (book_id,)).fetchone()
+        row = conn.execute("SELECT id_book, status, id_user, date_servive, date_return, date_due FROM book_status WHERE id_book = ?", (book_id,)).fetchone()
     return row
 
 
@@ -509,10 +511,13 @@ def _borrow_book(book_id: int, username: str) -> tuple[bool, str]:
         if status and status["status"] == "borrowed":
             return False, "This book is currently borrowed."
         today = date.today().isoformat()
+        # default due date: 14 days from today
+        due_date = (date.today() + timedelta(days=14)).isoformat()
+        conn.execute("UPDATE books SET borrow_count = borrow_count + 1 WHERE id = ?", (book_id,))
         if status is None:
-            conn.execute("INSERT INTO book_status(id_book, status, id_user, date_servive, date_return) VALUES (?, ?, ?, ?, NULL)", (book_id, "borrowed", user_id, today,))
+            conn.execute("INSERT INTO book_status(id_book, status, id_user, date_servive, date_return, date_due) VALUES (?, ?, ?, ?, NULL, ?)", (book_id, "borrowed", user_id, today, due_date))
         else:
-            conn.execute("UPDATE book_status SET status = ?, id_user = ?, date_servive = ?, date_return = NULL WHERE id_book = ?", ("borrowed", user_id, today, book_id))
+            conn.execute("UPDATE book_status SET status = ?, id_user = ?, date_servive = ?, date_return = NULL, date_due = ? WHERE id_book = ?", ("borrowed", user_id, today, due_date, book_id))
         conn.commit()
 
     return True, f"'{book['name']}' borrowed successfully."
@@ -548,19 +553,26 @@ def _unborrow_book(book_id: int) -> tuple[bool, str]:
     try:
         with db.get_connection() as conn:
             row = conn.execute("SELECT status FROM book_status WHERE id_book = ?", (book_id,)).fetchone()
-            if not row:
+            if not row or str(row["status"]).lower() != "borrowed":
                 return False, "This book is already available."
+            
+            conn.execute(
+                "UPDATE books SET borrow_count = CASE WHEN borrow_count > 0 THEN borrow_count - 1 ELSE 0 END WHERE id = ?",
+                (book_id,)
+            )
 
+            today = date.today().isoformat()
             conn.execute(
                 """
                 UPDATE book_status
                 SET status = 'available',
                     id_user = NULL,
                     date_servive = NULL,
-                    date_return = NULL
+                    date_return = ?,
+                    date_due = NULL
                 WHERE id_book = ?
                 """,
-                (book_id,)
+                (today, book_id)
             )
 
             conn.commit()
@@ -751,7 +763,7 @@ def _render_admin_books_view(rows: list, selected_book_index: int, selected_acti
         if len(rows) > len(visible_rows): table.add_row("...", "More books available", "Use ↑↓ to scroll", "", "")
     else:table.add_row("-", "No books available", "-", "-", "-")
 
-    actions = ["Edit", "Delete", "Add Book", "Back"]
+    actions = ["Edit", "Delete", "Add Book", "Dashboard", "Back"]
     action_buttons = []
     for index, action in enumerate(actions):
         if index == selected_action_index: action_buttons.append(f"[bold black on #00FFB3] {action} [/]")
@@ -815,6 +827,260 @@ def _delete_book_confirm(book_row) -> None:
         _show_admin_message("Book deleted successfully.")
         return
     _show_admin_message("Delete cancelled.")
+
+
+def _admin_dashboard() -> None:
+    console.clear()
+    rows = db.get_connection().execute(
+        """
+        SELECT b.id, b.name, COALESCE(bs.status, 'available') AS status, u.username, bs.date_servive, bs.date_due, bs.date_return
+        FROM books b
+        LEFT JOIN book_status bs ON bs.id_book = b.id
+        LEFT JOIN users u ON u.id = bs.id_user
+        WHERE bs.status = 'borrowed'
+        ORDER BY bs.date_due IS NULL, bs.date_due
+        """
+    ).fetchall()
+
+    table = Table(show_header=True, header_style="bold #00FFB3", box=box.SIMPLE_HEAVY, expand=True)
+    table.add_column("ID", style="white", no_wrap=True)
+    table.add_column("Title", style="white")
+    table.add_column("Borrower", style="white")
+    table.add_column("Borrowed", style="white")
+    table.add_column("Due", style="white")
+    table.add_column("Overdue", style="white")
+
+    today = date.today()
+    if rows:
+        for row in rows:
+            due = row[5]
+            overdue = "No"
+            if due:
+                try:
+                    due_date = date.fromisoformat(due)
+                    overdue = "Yes" if today > due_date else "No"
+                except Exception:
+                    overdue = "Unknown"
+
+            table.add_row(str(row[0]), str(row[1]), str(row[3] or "-"), str(row[4] or "-"), str(due or "-"), overdue)
+    else:
+        table.add_row("-", "No borrowed books", "-", "-", "-", "-")
+
+    console.print(Align.center(Panel.fit(table, title="Admin Dashboard · Borrowed Books", border_style="#01796F")))
+    console.print(Align.center("[dim]Press b to go back[/dim]"))
+
+    try:
+        if os.name == "nt":
+            import msvcrt
+            while True:
+                ch = msvcrt.getwch()
+                if ch.lower() == "b":
+                    return
+        else:
+            if not sys.stdin.isatty():
+                console.input("Press Enter to continue...")
+                return
+
+            fd = sys.stdin.fileno()
+            old = termios.tcgetattr(fd)
+            try:
+                tty.setraw(fd)
+                while True:
+                    ch = sys.stdin.read(1)
+                    if not ch:
+                        continue
+                    if ch.lower() == "b":
+                        return
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old)
+    except Exception:
+        console.input("Press Enter to continue...")
+
+
+def _export_book_pdf(book_row) -> None:
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.units import inch
+    except Exception as e:
+        _show_admin_message(f"PDF generation library missing: {e}")
+        return
+
+    book_id = int(book_row["id"])
+    with db.get_connection() as conn:
+        bs = conn.execute("SELECT status, id_user, date_servive, date_due, date_return FROM book_status WHERE id_book = ?", (book_id,)).fetchone()
+        user = None
+        if bs and bs[1]:
+            user = conn.execute("SELECT username, name, lastname FROM users WHERE id = ?", (bs[1],)).fetchone()
+
+    filename = f"book_{book_id}_report.pdf"
+    c = canvas.Canvas(filename, pagesize=letter)
+    width, height = letter
+
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(1 * inch, height - 1 * inch, f"Book Report: {book_row['name']}")
+
+    c.setFont("Helvetica", 12)
+    c.drawString(1 * inch, height - 1.5 * inch, f"Author: {book_row.get('author', '-')}")
+    c.drawString(1 * inch, height - 1.8 * inch, f"Category: {book_row.get('category', '-')}")
+    c.drawString(1 * inch, height - 2.1 * inch, f"Year: {book_row.get('year', '-')}")
+
+    y = height - 2.6 * inch
+    if bs:
+        c.drawString(1 * inch, y, f"Status: {bs['status']}")
+        y -= 0.3 * inch
+        c.drawString(1 * inch, y, f"Borrowed by: {user['username'] if user else '-'}")
+        y -= 0.3 * inch
+        c.drawString(1 * inch, y, f"Date Borrowed: {bs['date_servive'] or '-'}")
+        y -= 0.3 * inch
+        c.drawString(1 * inch, y, f"Due Date: {bs['date_due'] or '-'}")
+        y -= 0.3 * inch
+        c.drawString(1 * inch, y, f"Date Returned: {bs['date_return'] or '-'}")
+    else:
+        c.drawString(1 * inch, y, "Status: available")
+
+    c.showPage()
+    c.save()
+
+    _show_admin_message(f"PDF exported: {filename}")
+
+
+def _export_all_borrowed_pdf() -> None:
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet
+    except Exception as e:
+        _show_admin_message(f"PDF generation library missing: {e}")
+        return
+
+    with db.get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT b.id, b.name, COALESCE(bs.status, 'available') AS status, u.username, bs.date_servive, bs.date_due, bs.date_return
+            FROM books b
+            LEFT JOIN book_status bs ON bs.id_book = b.id
+            LEFT JOIN users u ON u.id = bs.id_user
+            WHERE bs.status = 'borrowed'
+            ORDER BY bs.date_due IS NULL, bs.date_due
+            """
+        ).fetchall()
+
+    filename = "borrowed_books_report.pdf"
+    doc = SimpleDocTemplate(filename, pagesize=letter)
+    elems = []
+    styles = getSampleStyleSheet()
+    elems.append(Paragraph("Borrowed Books Report", styles["Title"]))
+    elems.append(Spacer(1, 12))
+
+    data = [["ID", "Title", "Borrower", "Borrowed", "Due", "Overdue"]]
+    today = date.today()
+    for row in rows:
+        due = row[5]
+        overdue = "No"
+        if due:
+            try:
+                due_date = date.fromisoformat(due)
+                overdue = "Yes" if today > due_date else "No"
+            except Exception:
+                overdue = "Unknown"
+        data.append([str(row[0]), str(row[1]), str(row[3] or "-"), str(row[4] or "-"), str(due or "-"), overdue])
+
+    table = RLTable(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#00FFB3")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+    ]))
+
+    elems.append(table)
+    doc.build(elems)
+
+    _show_admin_message(f"PDF exported: {filename}")
+
+
+def _generate_full_pdf_report() -> None:
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer, PageBreak
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet
+    except Exception as e:
+        _show_admin_message(f"PDF generation library missing: {e}")
+        return
+
+    with db.get_connection() as conn:
+        users = conn.execute("SELECT id, username, name, lastname, birthday, job, role, offences FROM users ORDER BY id").fetchall()
+        books = conn.execute("SELECT id, name, category, author, year, borrow_count FROM books ORDER BY id").fetchall()
+        statuses = conn.execute("SELECT id_book, status, id_user, date_servive, date_due, date_return FROM book_status ORDER BY id_book").fetchall()
+        offences = conn.execute("SELECT id, id_user, type, description FROM offences ORDER BY id").fetchall()
+
+    filename = "full_library_report.pdf"
+    doc = SimpleDocTemplate(filename, pagesize=letter)
+    elems = []
+    styles = getSampleStyleSheet()
+
+    elems.append(Paragraph("Library Full Report", styles["Title"]))
+    elems.append(Spacer(1, 12))
+
+    elems.append(Paragraph("Users", styles["Heading2"]))
+    data = [["ID", "Username", "Name", "Lastname", "Birthday", "Job", "Role", "Offences"]]
+    for u in users:
+        data.append([str(u[0]), str(u[1]), str(u[2] or ""), str(u[3] or ""), str(u[4] or ""), str(u[5] or ""), str(u[6] or ""), str(u[7] or "")])
+    table = RLTable(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#00FFB3")),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+    ]))
+    elems.append(table)
+    elems.append(PageBreak())
+
+    # Books
+    elems.append(Paragraph("Books", styles["Heading2"]))
+    data = [["ID", "Title", "Category", "Author", "Year", "Borrow Count"]]
+    for b in books:
+        data.append([str(b[0]), str(b[1]), str(b[2] or ""), str(b[3] or ""), str(b[4] or ""), str(b[5] or "0")])
+    table = RLTable(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#00FFB3")),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+    ]))
+    elems.append(table)
+    elems.append(PageBreak())
+
+    # Book statuses
+    elems.append(Paragraph("Book Statuses", styles["Heading2"]))
+    data = [["Book ID", "Status", "User ID", "Date Borrowed", "Date Due", "Date Returned"]]
+    for s in statuses:
+        data.append([str(s[0]), str(s[1] or ""), str(s[2] or ""), str(s[3] or ""), str(s[4] or ""), str(s[5] or "")])
+    table = RLTable(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#00FFB3")),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+    ]))
+    elems.append(table)
+    elems.append(PageBreak())
+
+    # Offences
+    elems.append(Paragraph("Offences", styles["Heading2"]))
+    data = [["ID", "User ID", "Type", "Description"]]
+    for o in offences:
+        data.append([str(o[0]), str(o[1] or ""), str(o[2] or ""), str(o[3] or "")])
+    table = RLTable(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#00FFB3")),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+    ]))
+    elems.append(table)
+
+    try:
+        doc.build(elems)
+    except Exception as e:
+        _show_admin_message(f"Failed to build PDF: {e}")
+        return
+
+    _show_admin_message(f"Full PDF exported: {filename}")
 
 
 def _render_categories_view(categories: list[str], selected_index: int) -> None:
@@ -915,15 +1181,22 @@ def show_admin_books(current_role: str = "user") -> None:
         key = _read_key()
 
         if key == "BACK": return
+        if key in ("d", "D"):
+            _export_all_borrowed_pdf()
+            continue
+        if key in ("p", "P") and rows:
+            selected_book = rows[selected_book_index]
+            _export_book_pdf(selected_book)
+            continue
         if key == "SEARCH":
             query = console.input("Search books (title/author/category/year/id, Enter for all): ").strip()
             selected_book_index = 0
         elif key == "UP" and rows: selected_book_index = (selected_book_index - 1) % len(rows)
         elif key == "DOWN" and rows: selected_book_index = (selected_book_index + 1) % len(rows)
-        elif key in ("TAB", "RIGHT"): selected_action_index = (selected_action_index + 1) % 4
-        elif key == "LEFT": selected_action_index = (selected_action_index - 1) % 4
+        elif key in ("TAB", "RIGHT"): selected_action_index = (selected_action_index + 1) % 5
+        elif key == "LEFT": selected_action_index = (selected_action_index - 1) % 5
         elif key == "ENTER":
-            if selected_action_index == 3:
+            if selected_action_index == 4:
                 return
             if not rows:
                 _show_admin_message("There are no books to manage yet.")
@@ -936,3 +1209,5 @@ def show_admin_books(current_role: str = "user") -> None:
                 _delete_book_confirm(selected_book)
             elif selected_action_index == 2:
                 _add_book_form()
+            elif selected_action_index == 3:
+                _admin_dashboard()

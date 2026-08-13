@@ -29,6 +29,11 @@ def hash_password(password: str) -> tuple[bytes, bytes]:
     return hashed, salt
 
 def verify_password(stored_hash: bytes, stored_salt: bytes, input_password: str) -> bool:
+    if isinstance(stored_hash, str):
+        stored_hash = stored_hash.encode("latin-1")
+    if isinstance(stored_salt, str):
+        stored_salt = stored_salt.encode("latin-1")
+
     new_hash = hashlib.pbkdf2_hmac(
         hash_name = 'sha256',
         password = input_password.encode('utf-8'),

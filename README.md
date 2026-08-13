@@ -22,6 +22,12 @@ Or use it online (you gotta be logged) -> <br>
 ## Database Schema:
 <img src="resources/schema.jpeg" alt="Schema" width="650">
 
+### Screenshoots
+<img src="resources/main_menu.png" alt="Schema" width="450">
+<img src="resources/books_menu.png" alt="Schema" width="450">
+<img src="resources/categories_menu.png" alt="Schema" width="450">
+<img src="resources/about_menu.png" alt="Schema" width="450">
+
 ### Team members:
 1. Lesly Adilene Terrazo Rodriguez
 2. Luis Gael Gonzalez Torres :star:

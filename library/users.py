@@ -29,6 +29,7 @@ from rich.table import Table
 
 from database import database as db
 from ui import visuals
+from auth import credentials
 
 
 console = Console()
@@ -53,7 +54,7 @@ def _fetch_users() -> list:
     with db.get_connection() as conn:
         rows = conn.execute(
             """
-            SELECT id, name, lastname, username, password, birthday, job, role, offences
+            SELECT id, name, lastname, username, password, password_salt, birthday, job, role, offences
             FROM users
             ORDER BY id
             """
@@ -65,7 +66,7 @@ def _fetch_users_with_ids() -> list:
     with db.get_connection() as conn:
         rows = conn.execute(
             """
-            SELECT id, name, lastname, username, password, birthday, job, role, offences
+            SELECT id, name, lastname, username, password, password_salt, birthday, job, role, offences
             FROM users
             ORDER BY id
             """
@@ -73,15 +74,15 @@ def _fetch_users_with_ids() -> list:
     return rows
 
 
-def _update_user(user_id: int, name: str, lastname: str, username: str, password: str, birthday: str, job: str, role: str) -> None:
+def _update_user(user_id: int, name: str, lastname: str, username: str, password, password_salt, birthday: str, job: str, role: str) -> None:
     with db.get_connection() as conn:
         conn.execute(
             """
             UPDATE users
-            SET name = ?, lastname = ?, username = ?, password = ?, birthday = ?, job = ?, role = ?
+            SET name = ?, lastname = ?, username = ?, password = ?, password_salt = ?, birthday = ?, job = ?, role = ?
             WHERE id = ?
             """,
-            (name, lastname, username, password, birthday, job, role, user_id),
+            (name, lastname, username, password, password_salt, birthday, job, role, user_id),
         )
         conn.commit()
 
@@ -192,17 +193,26 @@ def _show_admin_message(message: str, title: str = "Admin Users",) -> None:
 def _edit_user_form(user_row) -> None:
     console.clear()
     console.print(Panel.fit(f"Editing user ID {user_row['id']}", title="Edit User", border_style="#01796F"))
-    name_value = console.input(f"Name [{user_row['name']}]: ").strip() or str(user_row["name"])
-    lastname_value = console.input(f"Lastname [{user_row['lastname']}]: ").strip() or str(user_row["lastname"])
-    username_value = console.input(f"Username [{user_row['username']}]: ").strip() or str(user_row["username"])
-    password_value = console.input(f"Password: ").strip() or str(user_row["password"])
-    birthday_value = console.input(f"Birthday [{user_row['birthday']}]: ").strip() or str(user_row["birthday"])
-    job_value = console.input(f"Job [{user_row['job']}]: ").strip() or str(user_row["job"])
-    role_value = console.input(f"Role [{user_row['role']}]: ").strip().lower() or str(user_row["role"])
+    name_value = console.input(f"Name [{user_row['name']}]: ").strip() or user_row["name"]
+    lastname_value = console.input(f"Lastname [{user_row['lastname']}]: ").strip() or user_row["lastname"]
+    username_value = console.input(f"Username [{user_row['username']}]: ").strip() or user_row["username"]
+    # If password left blank, preserve existing hash and salt. Otherwise hash new password.
+    new_password = console.input("Password (leave blank to keep current): ").strip()
+    if new_password:
+        hashed_password, new_salt = credentials.hash_password(new_password)
+        password_value = hashed_password
+        password_salt_value = new_salt
+    else:
+        password_value = user_row["password"]
+        # Some rows may not include password_salt (legacy); fall back to None
+        password_salt_value = user_row["password_salt"] if "password_salt" in user_row.keys() else None
+    birthday_value = console.input(f"Birthday [{user_row['birthday']}]: ").strip() or user_row["birthday"]
+    job_value = console.input(f"Job [{user_row['job']}]: ").strip() or user_row["job"]
+    role_value = console.input(f"Role [{user_row['role']}]: ").strip().lower() or user_row["role"]
     if role_value not in ("user", "admin"):
         _show_admin_message("Role must be either 'user' or 'admin'.")
         return
-    _update_user(int(user_row["id"]),name_value,lastname_value,username_value,password_value,birthday_value,job_value,role_value,)
+    _update_user(int(user_row["id"]), name_value, lastname_value, username_value, password_value, password_salt_value, birthday_value, job_value, role_value)
     _show_admin_message("User updated successfully.")
 
 

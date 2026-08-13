@@ -30,11 +30,13 @@ from library.books import show_author
 from library.books import show_title
 from library.books import show_categories
 from library.books import show_admin_books
+from library.books import _generate_full_pdf_report
 from library.users import show_admin_users
 from database.seed_books import seed_books
 from ui import visuals
-from about import about
+from library import about
 from database import database
+from library.amongus import amoung_us
 
 # Create console instance
 console = Console()
@@ -45,16 +47,16 @@ def handle_sigint(signum, frame) -> None:
 
 
 MENUBOOKS = [
-    { "name": " Books ", "topics": ["Title", "Categories", "Author"], "color": "green" },
-    { "name": "Login / Sign In", "topics": ["Login", "Sign Up"], "color": "green" },
-    { "name": "Admin", "topics": ["Books", "Users"], "color": "green" },
-    { "name": "About", "topics": ["Staff", "Rules", "Made by"], "color": "green" }
+    { "name": " 📚 Books ", "topics": ["Title", "Categories", "Author"], "color": "green" },
+    { "name": "👤 Login / Sign In", "topics": ["Login", "Sign Up"], "color": "cyan" },
+    { "name": "🔒 Admin", "topics": ["Books", "Users", "Generate PDF"], "color": "dark_orange3" },
+    { "name": "ℹ️ About", "topics": ["Staff", "Rules", "Made by"], "color": "magenta" }
 ]
 
 
 def draw_menu(title: str, options: List[str], color: str, selected: int) -> None:
     console.clear()
-    visuals.big_title("BOOKWORMS")
+    visuals.big_title("BOOKWORMS", color)
 
     table = Table(show_header=False, box=None, expand=True, pad_edge=False)
     table.add_column(ratio=1)
@@ -77,9 +79,9 @@ def draw_menu(title: str, options: List[str], color: str, selected: int) -> None
     help_text = "Use Up/Down arrows and Enter to select. Press q to exit."
     panel = Panel.fit(
         table,
-        title=f"[bold #00FFB3]{title}[/bold #00FFB3]",
+        title=f"[bold {color}]{title}[/bold {color}]",
         subtitle=help_text,
-        border_style="#00FFB3",
+        border_style=color,
         width=70,
         padding=(1, 4),
     )
@@ -99,6 +101,8 @@ def _map_key(char: str, seq: str = "") -> str:
         return "QUIT"
     if char in ("b", "B"):
         return "BACK"
+    if char in ("k", "K"):
+        return "AMONGUS"
     return "OTHER"
 
 
@@ -172,55 +176,39 @@ def run_menu() -> None:
 
     def _get_dynamic_menubooks():
         books_copy = [group.copy() for group in MENUBOOKS]
-        
+
         if current_user:
-            # Filter out Login / Sign In when logged in
-            books_copy = [g for g in books_copy if g["name"] != "Login / Sign In"]
-            # Insert Logout right AFTER About
-            logout_group = { "name": "Log Out", "topics": ["Confirm Log Out"], "color": "red" }
-            about_index = next((i for i, g in enumerate(books_copy) if g["name"] == "About"), -1)
+            # Filter out Login when logged in (substring match tolerates emoji)
+            books_copy = [g for g in books_copy if "Login" not in g["name"]]
+            logout_group = { "name": "🚪 Log Out", "topics": ["Confirm Log Out"], "color": "red" }
+            about_index = next((i for i, g in enumerate(books_copy) if "About" in g["name"]), -1)
             if about_index != -1:
                 books_copy.insert(about_index + 1, logout_group)
             else:
                 books_copy.append(logout_group)
-        
+
+        # Hide admin for non-admin users (substring match)
         if not (current_user and current_user.get("role") == "admin"):
-            books_copy = [g for g in books_copy if g["name"] != "Admin"]
-            
-        return books_copy
-    def _get_dynamic_menubooks():
-        books_copy = [group.copy() for group in MENUBOOKS]
-        
-        if current_user:
-            # Filter out Login / Sign In when logged in
-            books_copy = [g for g in books_copy if g["name"] != "Login / Sign In"]
-            # Insert Logout right AFTER About
-            logout_group = { "name": "Log Out", "topics": ["Confirm Log Out"], "color": "red" }
-            about_index = next((i for i, g in enumerate(books_copy) if g["name"] == "About"), -1)
-            if about_index != -1:
-                books_copy.insert(about_index + 1, logout_group)
-            else:
-                books_copy.append(logout_group)
-        
-        if not (current_user and current_user.get("role") == "admin"):
-            books_copy = [g for g in books_copy if g["name"] != "Admin"]
-            
+            books_copy = [g for g in books_copy if "Admin" not in g["name"]]
+
         return books_copy
 
     while True:
         current_menubooks = _get_dynamic_menubooks()
 
-        current_menubooks = _get_dynamic_menubooks()
-
         if view == "groups":
-            group_options = [group["name"] for group in current_menubooks] + ["◄ Exit"]
             group_options = [group["name"] for group in current_menubooks] + ["◄ Exit"]
             selected = min(selected, len(group_options) - 1)
             active_color = current_menubooks[selected]["color"] if selected < len(current_menubooks) else "blue"
             draw_menu("🐛 MENU 🐛", group_options, active_color, selected)
-            active_color = current_menubooks[selected]["color"] if selected < len(current_menubooks) else "blue"
-            draw_menu("🐛 MENU 🐛", group_options, active_color, selected)
             key = read_key()
+
+            if key == "AMONGUS":
+                try:
+                    amoung_us(console, read_key)
+                except Exception:
+                    pass
+                continue
 
             if key == "QUIT":
                 break
@@ -232,19 +220,9 @@ def run_menu() -> None:
                 if selected == len(group_options) - 1:
                     break
                 current_group = selected
-                current_group = selected
                 selected = 0
-                
-                # If they clicked "Log Out" directly from the main menu list
-                if current_menubooks[current_group]["name"] == "Log Out":
-                    current_user = None
-                    show_placeholder("Successfully logged out!")
-                    view = "groups"
-                else:
-                    view = "topics"
-                
-                # If they clicked "Log Out" directly from the main menu list
-                if current_menubooks[current_group]["name"] == "Log Out":
+
+                if "Log Out" in current_menubooks[current_group]["name"]:
                     current_user = None
                     show_placeholder("Successfully logged out!")
                     view = "groups"
@@ -252,10 +230,7 @@ def run_menu() -> None:
                     view = "topics"
         else:
             topics = current_menubooks[current_group]["topics"]
-            topics = current_menubooks[current_group]["topics"]
             topic_options = topics + ["← Back"]
-            color = current_menubooks[current_group]["color"]
-            draw_menu(current_menubooks[current_group]["name"], topic_options, color, selected)
             color = current_menubooks[current_group]["color"]
             draw_menu(current_menubooks[current_group]["name"], topic_options, color, selected)
             key = read_key()
@@ -276,26 +251,19 @@ def run_menu() -> None:
                 else:
                     topic = topics[selected]
                     group_name = current_menubooks[current_group]["name"]
-                    
-                    group_name = current_menubooks[current_group]["name"]
-                    
+
                     if topic == "Categories":
                         show_categories(topic)
                     elif topic == "Login":
                         authenticated_user = credentials.login()
                         if authenticated_user:
                             current_user = authenticated_user
-                            show_placeholder(
-                                f"Looged in as {current_user['username']}..."
-                            )      
+                            show_placeholder(f"Logged in as {current_user['username']}")
                     elif topic == "Sign Up":
-                        credentials.sign_up()
-                        """
-                        role, user = credentials.sign_up()
-                        # Here you can add the user creation logic
-                        show_placeholder(
-                            f"User {user['username']} created with role {role}"
-                        )"""
+                        authenticated_user = credentials.sign_up()
+                        if authenticated_user:
+                            current_user = authenticated_user
+                            show_placeholder(f"Logged in as {current_user['username']}")
                     elif topic == "Title":
                         show_title(current_user["username"] if current_user else None)
                     elif topic == "Author":
@@ -306,10 +274,15 @@ def run_menu() -> None:
                         about.show_rules()
                     elif topic == "Made by":
                         about.show_made_by()
-                    elif group_name == "Admin" and topic == "Books":
+                    elif "Admin" in group_name and topic == "Books":
                         show_admin_books(current_user["role"] if current_user else "user")
-                    elif group_name == "Admin" and topic == "Users":
+                    elif "Admin" in group_name and topic == "Users":
                         show_admin_users(current_user["role"] if current_user else "user")
+                    elif "Admin" in group_name and topic == "Generate PDF":
+                        try:
+                            _generate_full_pdf_report()
+                        except Exception:
+                            show_placeholder("Failed to generate PDF report.")
                     else:
                         show_placeholder(topic)
                     selected = 0
@@ -320,7 +293,7 @@ def main() -> None:
 
     # Program Code
     console.clear()
-    visuals.big_title("BOOKWORMS")
+    visuals.big_title("BOOKWORMS", "#00FF7F")
     run_menu()
 
     # Exit code
@@ -339,5 +312,15 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, handle_sigint)
     try:
         main()
+    except visuals.ExitApp:
+        console.clear()
+        visuals.big_title("BOOKWORMS")
+        console.print(
+            Align.center(
+                Panel("📖 ¡THANK YOU FOR USING WORMBOOKS! 📖", border_style="#01796F")
+            )
+        )
+        console.print(Align.center("[dim]Press Enter or wait 5s to exit...[/dim]"))
+        wait_for_exit(5)
     except (KeyboardInterrupt, visuals.UserCancelledError):
         visuals.show_cancelled_panel(console)
