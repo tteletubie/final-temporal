@@ -1,20 +1,4 @@
 # 1. Standard Libraries
-import os
-import sys
-
-try:
-    import termios
-    import tty
-except ImportError:  # pragma: no cover - Windows fallback
-    termios = None
-    tty = None
-
-try:
-    import msvcrt
-except ImportError:  # pragma: no cover - Unix fallback
-    msvcrt = None
-
-# 2. Third-Party Libraries
 from rich import box
 from rich.align import Align
 from rich.console import Console
@@ -24,29 +8,16 @@ from rich.table import Table
 # 3. Local Modules
 from database import database as db
 from datetime import date, timedelta
+from library.search_utils import normalize_text, stem_token
 from ui import visuals
+from ui.key_input import read_key
 
 
 console = Console()
 
 
-def _normalize_text(value: str) -> str:
-    cleaned = []
-    for char in value.lower():
-        cleaned.append(char if (char.isalnum() or char.isspace()) else " ")
-    return " ".join("".join(cleaned).split())
-
-
-def _stem_token(token: str) -> str:
-    if len(token) > 3 and token.endswith("es"):
-        return token[:-2]
-    if len(token) > 3 and token.endswith("s"):
-        return token[:-1]
-    return token
-
-
 def _is_show_all_query(query: str) -> bool:
-    normalized_query = _normalize_text(query)
+    normalized_query = normalize_text(query)
     query_tokens = normalized_query.split()
     return query_tokens in (
         ["all"],
@@ -82,24 +53,21 @@ def _fetch_books() -> list:
             """
         ).fetchall()
 
-    return rows
-
-
 def _search_books_by_title(query: str) -> list:
-    normalized_query = _normalize_text(query)
+    normalized_query = normalize_text(query)
     query_tokens = normalized_query.split()
     if not query_tokens:
         return _fetch_books()
 
     results = []
     for row in _fetch_books():
-        title_tokens = _normalize_text(str(row["name"])).split()
+        title_tokens = normalize_text(str(row["name"])).split()
         title_token_set = set(title_tokens)
-        title_stem_set = {_stem_token(token) for token in title_tokens}
+        title_stem_set = {stem_token(token) for token in title_tokens}
 
         match = True
         for token in query_tokens:
-            token_stem = _stem_token(token)
+            token_stem = stem_token(token)
             has_prefix_match = any(
                 title_token.startswith(token) or title_token.startswith(token_stem)
                 for title_token in title_token_set
@@ -116,14 +84,14 @@ def _search_books_by_title(query: str) -> list:
 
 
 def _search_books_by_author(query: str) -> list:
-    normalized_query = _normalize_text(query)
+    normalized_query = normalize_text(query)
     query_tokens = normalized_query.split()
     if not query_tokens:
         return _fetch_books()
 
     results = []
     for row in _fetch_books():
-        author_tokens = _normalize_text(str(row["author"])).split()
+        author_tokens = normalize_text(str(row["author"])).split()
         author_token_set = set(author_tokens)
 
         match = True
@@ -140,14 +108,14 @@ def _search_books_by_author(query: str) -> list:
 
 
 def _search_books_by_category(query: str) -> list:
-    normalized_query = _normalize_text(query)
+    normalized_query = normalize_text(query)
     query_tokens = normalized_query.split()
     if not query_tokens:
         return _fetch_books()
 
     results = []
     for row in _fetch_books():
-        category_tokens = _normalize_text(str(row["category"])).split()
+        category_tokens = normalize_text(str(row["category"])).split()
         category_token_set = set(category_tokens)
 
         match = True
@@ -289,7 +257,7 @@ def _browse_books(
 
         selected_action_index = min(selected_action_index, len(actions) - 1)
         _render_normal_books_view(title, query_label, query, rows, selected_index, selected_action_index, default_hint)
-        key = _read_key()
+        key = read_key(enable_left_right=True, enable_tab=True, enable_search=True)
 
         if key == "BACK":
             return
@@ -383,62 +351,6 @@ def show_author(username: str | None = None) -> None:
         _search_books_by_author,
         username,
     )
-
-
-def _map_key(char: str, seq: str = "") -> str:
-    if char == "\x1b" and seq == "[A":
-        return "UP"
-    if char == "\x1b" and seq == "[B":
-        return "DOWN"
-    if char == "\x1b" and seq == "[D":
-        return "LEFT"
-    if char == "\x1b" and seq == "[C":
-        return "RIGHT"
-    if char == "\t":
-        return "TAB"
-    if char in ("\r", "\n"):
-        return "ENTER"
-    if char in ("/", "s", "S"):
-        return "SEARCH"
-    if char in ("q", "Q", "b", "B"):
-        return "BACK"
-    return "OTHER"
-
-
-def _read_key() -> str:
-    if os.name == "nt":
-        if msvcrt is None:
-            return "OTHER"
-
-        char = msvcrt.getwch()
-        if char in ("\x00", "\xe0"):
-            next_char = msvcrt.getwch()
-            if next_char == "H":
-                return "UP"
-            if next_char == "P":
-                return "DOWN"
-            if next_char == "K":
-                return "LEFT"
-            if next_char == "M":
-                return "RIGHT"
-            return "OTHER"
-        return _map_key(char)
-
-    if tty is None or termios is None or not sys.stdin.isatty():
-        return "OTHER"
-
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
-
-    try:
-        tty.setraw(fd)
-        char = sys.stdin.read(1)
-        if char == "\x1b":
-            seq = sys.stdin.read(2)
-            return _map_key(char, seq)
-        return _map_key(char)
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 
 def _fetch_categories() -> list[str]:
@@ -644,7 +556,7 @@ def _unborrow_book_confirm(book_row) -> None:
             Align.center("   ".join(buttons))
         )
 
-        key = _read_key()
+        key = read_key(enable_left_right=True, enable_tab=True, separate_quit_back=False)
 
         if key in ("BACK",):
             return
@@ -703,14 +615,14 @@ def _delete_book(book_id: int) -> None:
 
 
 def _search_books_for_admin(rows: list, query: str) -> list:
-    normalized_query = _normalize_text(query)
+    normalized_query = normalize_text(query)
     query_tokens = normalized_query.split()
     if not query_tokens:
         return rows
 
     filtered_rows = []
     for row in rows:
-        searchable_text = _normalize_text(
+        searchable_text = normalize_text(
             f"{row['name']} {row['category']} {row['author']} {row['year']} {row['id']}"
         )
         row_tokens = searchable_text.split()
@@ -869,32 +781,10 @@ def _admin_dashboard() -> None:
     console.print(Align.center(Panel.fit(table, title="Admin Dashboard · Borrowed Books", border_style="#01796F")))
     console.print(Align.center("[dim]Press b to go back[/dim]"))
 
-    try:
-        if os.name == "nt":
-            import msvcrt
-            while True:
-                ch = msvcrt.getwch()
-                if ch.lower() == "b":
-                    return
-        else:
-            if not sys.stdin.isatty():
-                console.input("Press Enter to continue...")
-                return
-
-            fd = sys.stdin.fileno()
-            old = termios.tcgetattr(fd)
-            try:
-                tty.setraw(fd)
-                while True:
-                    ch = sys.stdin.read(1)
-                    if not ch:
-                        continue
-                    if ch.lower() == "b":
-                        return
-            finally:
-                termios.tcsetattr(fd, termios.TCSADRAIN, old)
-    except Exception:
-        console.input("Press Enter to continue...")
+    while True:
+        key = read_key()
+        if key == "BACK":
+            return
 
 
 def _export_book_pdf(book_row) -> None:
@@ -1142,7 +1032,7 @@ def show_categories(view: str) -> None:
 
         while True:
             _render_categories_view(categories, selected_index)
-            key = _read_key()
+            key = read_key()
 
             if key in ("BACK", "ENTER"):
                 return
@@ -1178,7 +1068,7 @@ def show_admin_books(current_role: str = "user") -> None:
             selected_book_index = 0
 
         _render_admin_books_view(rows, selected_book_index, selected_action_index, query)
-        key = _read_key()
+        key = read_key(enable_left_right=True, enable_tab=True, enable_search=True)
 
         if key == "BACK": return
         if key in ("d", "D"):

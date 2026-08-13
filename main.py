@@ -7,13 +7,6 @@ import time
 from typing import List
 
 try:
-    import termios
-    import tty
-except ImportError:  # pragma: no cover - Windows fallback
-    termios = None
-    tty = None
-
-try:
     import msvcrt
 except ImportError:  # pragma: no cover - Unix fallback
     msvcrt = None
@@ -32,8 +25,8 @@ from library.books import show_categories
 from library.books import show_admin_books
 from library.books import _generate_full_pdf_report
 from library.users import show_admin_users
-from database.seed_books import seed_books
 from ui import visuals
+from ui.key_input import read_key
 from library import about
 from database import database
 from library.amongus import amoung_us
@@ -88,59 +81,6 @@ def draw_menu(title: str, options: List[str], color: str, selected: int) -> None
     console.print(Align.center(panel))
 
 
-def _map_key(char: str, seq: str = "") -> str:
-    if char == "\x03":
-        raise visuals.UserCancelledError()
-    if char == "\x1b" and seq == "[A":
-        return "UP"
-    if char == "\x1b" and seq == "[B":
-        return "DOWN"
-    if char in ("\r", "\n"):
-        return "ENTER"
-    if char in ("q", "Q"):
-        return "QUIT"
-    if char in ("b", "B"):
-        return "BACK"
-    if char in ("k", "K"):
-        return "AMONGUS"
-    return "OTHER"
-
-
-def read_key() -> str:
-    """Read one keypress and map arrows, enter, back, and quit to semantic values."""
-    if os.name == "nt":
-        if msvcrt is None:
-            return "OTHER"
-
-        char = msvcrt.getwch()
-        if char == "\x03":
-            raise visuals.UserCancelledError()
-        if char in ("\x00", "\xe0"):
-            next_char = msvcrt.getwch()
-            if next_char == "H":
-                return "UP"
-            if next_char == "P":
-                return "DOWN"
-            return "OTHER"
-        return _map_key(char)
-
-    if tty is None or termios is None or not sys.stdin.isatty():
-        return "OTHER"
-
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
-
-    try:
-        tty.setraw(fd)
-        char = sys.stdin.read(1)
-        if char == "\x1b":
-            seq = sys.stdin.read(2)
-            return _map_key(char, seq)
-        return _map_key(char)
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-
-
 def wait_for_exit(delay: float = 5.0) -> None:
     """Wait briefly for a keypress before exiting, using a portable implementation."""
     if os.name == "nt":
@@ -166,6 +106,18 @@ def show_placeholder(topic: str) -> None:
     console.print(Panel.fit(f"[bold]Selected:[/bold] {topic}\n\nPlaceholder: ....", title="Topic", border_style="green"))
     console.print("Press any key to return...")
     read_key()
+
+
+def _show_goodbye() -> None:
+    console.clear()
+    visuals.big_title("BOOKWORMS")
+    console.print(
+        Align.center(
+            Panel("📖 ¡THANK YOU FOR USING WORMBOOKS! 📖", border_style="#01796F")
+        )
+    )
+    console.print(Align.center("[dim]Press Enter or wait 5s to exit...[/dim]"))
+    wait_for_exit(5)
 
 
 def run_menu() -> None:
@@ -201,7 +153,7 @@ def run_menu() -> None:
             selected = min(selected, len(group_options) - 1)
             active_color = current_menubooks[selected]["color"] if selected < len(current_menubooks) else "blue"
             draw_menu("🐛 MENU 🐛", group_options, active_color, selected)
-            key = read_key()
+            key = read_key(enable_amongus=True, separate_quit_back=True)
 
             if key == "AMONGUS":
                 try:
@@ -233,7 +185,7 @@ def run_menu() -> None:
             topic_options = topics + ["← Back"]
             color = current_menubooks[current_group]["color"]
             draw_menu(current_menubooks[current_group]["name"], topic_options, color, selected)
-            key = read_key()
+            key = read_key(separate_quit_back=True)
 
             if key == "QUIT":
                 break
@@ -296,16 +248,7 @@ def main() -> None:
     visuals.big_title("BOOKWORMS", "#00FF7F")
     run_menu()
 
-    # Exit code
-    console.clear()
-    visuals.big_title("BOOKWORMS")
-    console.print(
-        Align.center(
-            Panel("📖 ¡THANK YOU FOR USING WORMBOOKS! 📖", border_style="#01796F")
-        )
-    )
-    console.print(Align.center("[dim]Press Enter or wait 5s to exit...[/dim]"))
-    wait_for_exit(5)
+    _show_goodbye()
 
 
 if __name__ == "__main__":
@@ -313,14 +256,6 @@ if __name__ == "__main__":
     try:
         main()
     except visuals.ExitApp:
-        console.clear()
-        visuals.big_title("BOOKWORMS")
-        console.print(
-            Align.center(
-                Panel("📖 ¡THANK YOU FOR USING WORMBOOKS! 📖", border_style="#01796F")
-            )
-        )
-        console.print(Align.center("[dim]Press Enter or wait 5s to exit...[/dim]"))
-        wait_for_exit(5)
+        _show_goodbye()
     except (KeyboardInterrupt, visuals.UserCancelledError):
         visuals.show_cancelled_panel(console)

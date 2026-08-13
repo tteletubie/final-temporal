@@ -1,65 +1,18 @@
-# 1. Standard Libraries
-
-import os
-import sys
-
-try:
-    import termios
-    import tty
-except ImportError:  # pragma: no cover - Windows fallback
-    termios = None
-    tty = None
-
-try:
-    import msvcrt
-except ImportError:  # pragma: no cover - Unix fallback
-    msvcrt = None
-
-
-# 2. Third-Party Libraries
-
 from rich import box
 from rich.align import Align
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-
 # 3. Local Modules
 
 from database import database as db
-from ui import visuals
+from library.search_utils import normalize_text
+from ui.key_input import read_key
 from auth import credentials
 
 
 console = Console()
-
-
-def _normalize_text(value: str) -> str:
-    cleaned = []
-    for char in value.lower():
-        cleaned.append(char if (char.isalnum() or char.isspace()) else " ")
-    return " ".join("".join(cleaned).split())
-
-
-def _stem_token(token: str) -> str:
-    if len(token) > 3 and token.endswith("es"):
-        return token[:-2]
-    if len(token) > 3 and token.endswith("s"):
-        return token[:-1]
-    return token
-
-
-def _fetch_users() -> list:
-    with db.get_connection() as conn:
-        rows = conn.execute(
-            """
-            SELECT id, name, lastname, username, password, password_salt, birthday, job, role, offences
-            FROM users
-            ORDER BY id
-            """
-        ).fetchall()
-    return rows
 
 
 def _fetch_users_with_ids() -> list:
@@ -94,7 +47,7 @@ def _delete_user(user_id: int) -> None:
 
 
 def _search_users_for_admin(rows: list, query: str) -> list:
-    normalized_query = _normalize_text(query)
+    normalized_query = normalize_text(query)
     query_tokens = normalized_query.split()
 
     if not query_tokens:
@@ -103,7 +56,7 @@ def _search_users_for_admin(rows: list, query: str) -> list:
     filtered_rows = []
 
     for row in rows:
-        searchable_text = _normalize_text(
+        searchable_text = normalize_text(
             f"{row['id']} {row['name']} {row['lastname']} {row['username']} {row['password']} {row['birthday']} {row['job']} {row['role']} {row['offences']}")
         row_tokens = searchable_text.split()
         if all(any(token in row_token for row_token in row_tokens) for token in query_tokens):
@@ -227,94 +180,6 @@ def _delete_user_confirm(user_row) -> None:
     _show_admin_message("Delete cancelled.")
 
 
-def _map_key(
-    char: str,
-    seq: str = "",
-) -> str:
-
-    if char == "\x1b" and seq == "[A":
-        return "UP"
-
-    if char == "\x1b" and seq == "[B":
-        return "DOWN"
-
-    if char == "\x1b" and seq == "[D":
-        return "LEFT"
-
-    if char == "\x1b" and seq == "[C":
-        return "RIGHT"
-
-    if char == "\t":
-        return "TAB"
-
-    if char in ("\r", "\n"):
-        return "ENTER"
-
-    if char in ("/", "s", "S"):
-        return "SEARCH"
-
-    if char in ("q", "Q", "b", "B"):
-        return "BACK"
-
-    return "OTHER"
-
-
-def _read_key() -> str:
-
-    if os.name == "nt":
-        if msvcrt is None:
-            return "OTHER"
-
-        char = msvcrt.getwch()
-
-        if char in ("\x00", "\xe0"):
-            next_char = msvcrt.getwch()
-
-            if next_char == "H":
-                return "UP"
-
-            if next_char == "P":
-                return "DOWN"
-
-            if next_char == "K":
-                return "LEFT"
-
-            if next_char == "M":
-                return "RIGHT"
-
-            return "OTHER"
-
-        return _map_key(char)
-
-    if (
-        tty is None
-        or termios is None
-        or not sys.stdin.isatty()
-    ):
-        return "OTHER"
-
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
-
-    try:
-        tty.setraw(fd)
-
-        char = sys.stdin.read(1)
-
-        if char == "\x1b":
-            seq = sys.stdin.read(2)
-            return _map_key(char, seq)
-
-        return _map_key(char)
-
-    finally:
-        termios.tcsetattr(
-            fd,
-            termios.TCSADRAIN,
-            old_settings,
-        )
-
-
 def show_admin_users(current_role: str = "user") -> None:
     if str(current_role).lower() != "admin":
         _show_admin_message("Admin access required.", title="Access denied")
@@ -333,7 +198,7 @@ def show_admin_users(current_role: str = "user") -> None:
             selected_user_index = 0
 
         _render_admin_users_view(rows, selected_user_index, selected_action_index, query)
-        key = _read_key()
+        key = read_key(enable_left_right=True, enable_tab=True, enable_search=True)
 
         if key == "BACK":
             return
