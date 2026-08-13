@@ -154,11 +154,15 @@ def login():
 
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+        cursor.execute("SELECT id, username, role, password, password_salt FROM users WHERE username = ?", (username,))
         user = cursor.fetchone()
 
-    if user and verify_password(user[4], user[5], password):
-        return username
+    if user and verify_password(user[3], user[4], password):
+        return {
+            "id": int(user[0]),
+            "username": str(user[1]),
+            "role": str(user[2] or "user").lower(),
+        }
 
     # Deliberately generic: never reveal whether it was the username or the
     # password that was wrong.
@@ -241,9 +245,16 @@ def sign_up():
 
         with db.get_connection() as conn:
             cursor = conn.cursor()
+            cursor.execute("SELECT 1 FROM users LIMIT 1")
+            has_users = cursor.fetchone() is not None
+
+        role = "user" if has_users else "admin"
+
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO users (name, lastname, username, password, password_salt, birthday, job, offences) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (name, lastname, username, hashed_password, password_salt, birthday, job, offences),
+                "INSERT INTO users (name, lastname, username, password, password_salt, birthday, job, role, offences) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (name, lastname, username, hashed_password, password_salt, birthday, job, role, offences),
             )
             conn.commit()
 
@@ -260,11 +271,17 @@ def authenticate(username, password):
 
 
 def get_user_role(id_user):
-    pass
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT role FROM users WHERE id = ?", (id_user,))
+        user = cursor.fetchone()
+        if not user:
+            return None
+        return str(user[0] or "user").lower()
 
 
 def create_account():
-    pass
+    return sign_up()
 
 
 def username_exists(username: str) -> bool:

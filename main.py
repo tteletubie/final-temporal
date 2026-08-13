@@ -168,11 +168,18 @@ def run_menu() -> None:
     view = "groups"
     selected = 0
     current_group = 0
-    logged_username = None
+    current_user = None
+
+    def _visible_menu_groups() -> list[tuple[int, dict]]:
+        if current_user and current_user.get("role") == "admin":
+            return list(enumerate(MENUBOOKS))
+        return [(index, group) for index, group in enumerate(MENUBOOKS) if group["name"] != "Admin"]
 
     while True:
         if view == "groups":
-            group_options = [g["name"] for g in MENUBOOKS] + ["◄ Exit"]
+            visible_groups = _visible_menu_groups()
+            group_options = [group["name"] for _, group in visible_groups] + ["◄ Exit"]
+            selected = min(selected, len(group_options) - 1)
             draw_menu("🐛 MENU 🐛", group_options, "blue", selected)
             key = read_key()
 
@@ -185,7 +192,7 @@ def run_menu() -> None:
             elif key == "ENTER":
                 if selected == len(group_options) - 1:
                     break
-                current_group = selected
+                current_group = visible_groups[selected][0]
                 selected = 0
                 view = "topics"
         else:
@@ -213,12 +220,12 @@ def run_menu() -> None:
                     if topic == "Categories":
                         show_categories(topic)
                     elif topic == "Login":
-                        username = credentials.login()
-                        if username:##YA QUEDO BOORROW PERO CREO QUE DARA PROBLEMAS STATUS
+                        authenticated_user = credentials.login()
+                        if authenticated_user:##YA QUEDO BOORROW PERO CREO QUE DARA PROBLEMAS STATUS
                             # Here you can add the authentication logic
-                            logged_username = username
+                            current_user = authenticated_user
                             show_placeholder(
-                                f"Looged in as {logged_username}..."
+                                f"Looged in as {current_user['username']}..."
                             )      
                     elif topic == "Sign Up":
                         credentials.sign_up()
@@ -229,9 +236,9 @@ def run_menu() -> None:
                             f"User {user['username']} created with role {role}"
                         )"""
                     elif topic == "Title":
-                        show_title(logged_username)
+                        show_title(current_user["username"] if current_user else None)
                     elif topic == "Author":
-                        show_author(logged_username)
+                        show_author(current_user["username"] if current_user else None)
                     elif topic == "Staff":
                         about.show_staff()
                     elif topic == "Rules":
@@ -239,11 +246,9 @@ def run_menu() -> None:
                     elif topic == "Made by":
                         about.show_made_by()
                     elif MENUBOOKS[current_group]["name"] == "Admin" and topic == "Books":
-                        show_admin_books()
+                        show_admin_books(current_user["role"] if current_user else "user")
                     elif MENUBOOKS[current_group]["name"] == "Admin" and topic == "Users":
-                        show_admin_users()
-                    elif MENUBOOKS[current_group]["name"] == "Admin":
-                        show_placeholder(f"Admin → {topic}")
+                        show_admin_users(current_user["role"] if current_user else "user")
                     else:
                         show_placeholder(topic)
                     selected = 0

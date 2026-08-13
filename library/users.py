@@ -53,7 +53,7 @@ def _fetch_users() -> list:
     with db.get_connection() as conn:
         rows = conn.execute(
             """
-            SELECT id, name, lastname, username, password, birthday, job, offences
+            SELECT id, name, lastname, username, password, birthday, job, role, offences
             FROM users
             ORDER BY id
             """
@@ -65,7 +65,7 @@ def _fetch_users_with_ids() -> list:
     with db.get_connection() as conn:
         rows = conn.execute(
             """
-            SELECT id, name, lastname, username, password, birthday, job, offences
+            SELECT id, name, lastname, username, password, birthday, job, role, offences
             FROM users
             ORDER BY id
             """
@@ -73,15 +73,15 @@ def _fetch_users_with_ids() -> list:
     return rows
 
 
-def _update_user(user_id: int, name: str, lastname: str, username: str, password: str, birthday: str, job: str) -> None:
+def _update_user(user_id: int, name: str, lastname: str, username: str, password: str, birthday: str, job: str, role: str) -> None:
     with db.get_connection() as conn:
         conn.execute(
             """
             UPDATE users
-            SET name = ?, lastname = ?, username = ?, password = ?, birthday = ?, job = ?
+            SET name = ?, lastname = ?, username = ?, password = ?, birthday = ?, job = ?, role = ?
             WHERE id = ?
             """,
-            (name, lastname, username, password, birthday, job, user_id),
+            (name, lastname, username, password, birthday, job, role, user_id),
         )
         conn.commit()
 
@@ -103,7 +103,7 @@ def _search_users_for_admin(rows: list, query: str) -> list:
 
     for row in rows:
         searchable_text = _normalize_text(
-            f"{row['id']} {row['name']} {row['lastname']} {row['username']} {row['password']} {row['birthday']} {row['job']} {row['offences']}")
+            f"{row['id']} {row['name']} {row['lastname']} {row['username']} {row['password']} {row['birthday']} {row['job']} {row['role']} {row['offences']}")
         row_tokens = searchable_text.split()
         if all(any(token in row_token for row_token in row_tokens) for token in query_tokens):
             filtered_rows.append(row)
@@ -132,6 +132,7 @@ def _render_admin_users_view(rows: list, selected_user_index: int, selected_acti
     #table.add_column("Password", style="white", no_wrap=False)
     table.add_column("Birthday", style="white", no_wrap=False)
     table.add_column("Job", style="white", no_wrap=False)
+    table.add_column("Role", style="white", no_wrap=False)
     table.add_column("Offences", style="white", no_wrap=True)
 
     visible_rows, start_index = _admin_visible_rows(rows, selected_user_index,)
@@ -150,12 +151,13 @@ def _render_admin_users_view(rows: list, selected_user_index: int, selected_acti
                 #f"{row_style_prefix}{row['password']}{row_style_suffix}",
                 f"{row_style_prefix}{row['birthday']}{row_style_suffix}",
                 f"{row_style_prefix}{row['job']}{row_style_suffix}",
+                f"{row_style_prefix}{row['role']}{row_style_suffix}",
                 f"{row_style_prefix}{row['offences']}{row_style_suffix}",
             )
 
         if len(rows) > len(visible_rows):
-                table.add_row("...", "More users available", "Use ↑↓ to scroll", "", "", "", "", "")
-    else: table.add_row("-", "No users available", "-", "-", "-", "-", "-", "-")
+                table.add_row("...", "More users available", "Use ↑↓ to scroll", "", "", "", "", "", "")
+    else: table.add_row("-", "No users available", "-", "-", "-", "-", "-", "-", "-")
 
     actions = ["Edit", "Delete","Back"]
     action_buttons = []
@@ -196,7 +198,11 @@ def _edit_user_form(user_row) -> None:
     password_value = console.input(f"Password: ").strip() or str(user_row["password"])
     birthday_value = console.input(f"Birthday [{user_row['birthday']}]: ").strip() or str(user_row["birthday"])
     job_value = console.input(f"Job [{user_row['job']}]: ").strip() or str(user_row["job"])
-    _update_user(int(user_row["id"]),name_value,lastname_value,username_value,password_value,birthday_value,job_value,)
+    role_value = console.input(f"Role [{user_row['role']}]: ").strip().lower() or str(user_row["role"])
+    if role_value not in ("user", "admin"):
+        _show_admin_message("Role must be either 'user' or 'admin'.")
+        return
+    _update_user(int(user_row["id"]),name_value,lastname_value,username_value,password_value,birthday_value,job_value,role_value,)
     _show_admin_message("User updated successfully.")
 
 
@@ -299,7 +305,11 @@ def _read_key() -> str:
         )
 
 
-def show_admin_users() -> None:
+def show_admin_users(current_role: str = "user") -> None:
+    if str(current_role).lower() != "admin":
+        _show_admin_message("Admin access required.", title="Access denied")
+        return
+
     selected_user_index = 0
     selected_action_index = 0
     query = ""
@@ -318,7 +328,7 @@ def show_admin_users() -> None:
         if key == "BACK":
             return
         if key == "SEARCH":
-            query = console.input("Search users (name/lastname/username/password/birthday/job/id, Enter for all): ").strip() 
+            query = console.input("Search users (name/lastname/username/password/birthday/job/role/id, Enter for all): ").strip() 
             selected_user_index = 0
         elif key == "UP" and rows:
             selected_user_index = (selected_user_index - 1) % len(rows)

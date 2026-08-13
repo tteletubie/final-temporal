@@ -894,7 +894,11 @@ def show_category_browser() -> None:
     show_categories("Categories")
 
 
-def show_admin_books() -> None:
+def show_admin_books(current_role: str = "user") -> None:
+    if str(current_role).lower() != "admin":
+        _show_admin_message("Admin access required.", title="Access denied")
+        return
+
     selected_book_index = 0
     selected_action_index = 0
     query = ""
