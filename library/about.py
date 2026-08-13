@@ -82,7 +82,7 @@ def show_staff():
         visuals.big_title("BOOKWORMS")
         staff_panel = Panel(
             Group(
-                Align.center("\n[bold]Luis [green]Gael [/green]Gonzalez Torres\n"),
+                Align.center("\n[bold]🌟 Luis [green]Galileo [/green]Gonzalez Torres\n"),
                 Align.center("[bold][red]Carlos[/red] Silva Cortes\n"),
                 Align.center("[bold][magenta]Lesly [/magenta] Adilene Terrazo Rodriguez\n"),
                 Align.center("[bold]Maria [purple]Fernanda[/purple] Obregon Ramirez\n"),
@@ -127,7 +127,7 @@ def show_made_by():
         visuals.big_title("BOOKWORMS")
         credits_panel = Panel(
             Group(
-                Align.center("\n[bold]Luis [green]Gael [/green]Gonzalez Torres\n"),
+                Align.center("\n[bold]🌟 Luis [green]Galileo [/green]Gonzalez Torres\n"),
                 Align.center("[bold][red]Carlos[/red] Silva Cortes\n"),
                 Align.center("[bold][magenta]Lesly [/magenta] Adilene Terrazo Rodriguez\n"),
                 Align.center("[bold]Maria [purple]Fernanda[/purple] Obregon Ramirez\n"),
