@@ -14,9 +14,9 @@ from pyfiglet import figlet_format
 console = Console()
 
 
-def big_title(text):
+def big_title(text: str, color: str = "#00FF7F") -> None:
     big = figlet_format(text, font="slant")
-    print(Align.center(f"[#00FF7F]{big}[/#00FF7F]"))
+    print(Align.center(f"[{color}]{big}[/{color}]"))
 
 
 def input(text, field_type="text"):

@@ -47,15 +47,15 @@ def handle_sigint(signum, frame) -> None:
 
 MENUBOOKS = [
     { "name": " Books ", "topics": ["Title", "Categories", "Author"], "color": "green" },
-    { "name": "Login / Sign In", "topics": ["Login", "Sign Up"], "color": "green" },
-    { "name": "Admin", "topics": ["Books", "Users"], "color": "green" },
-    { "name": "About", "topics": ["Staff", "Rules", "Made by"], "color": "green" }
+    { "name": "Login / Sign In", "topics": ["Login", "Sign Up"], "color": "cyan" },
+    { "name": "Admin", "topics": ["Books", "Users"], "color": "dark_orange3" },
+    { "name": "About", "topics": ["Staff", "Rules", "Made by"], "color": "magenta" }
 ]
 
 
 def draw_menu(title: str, options: List[str], color: str, selected: int) -> None:
     console.clear()
-    visuals.big_title("BOOKWORMS")
+    visuals.big_title("BOOKWORMS", color)
 
     table = Table(show_header=False, box=None, expand=True, pad_edge=False)
     table.add_column(ratio=1)
@@ -78,9 +78,9 @@ def draw_menu(title: str, options: List[str], color: str, selected: int) -> None
     help_text = "Use Up/Down arrows and Enter to select. Press q to exit."
     panel = Panel.fit(
         table,
-        title=f"[bold #00FFB3]{title}[/bold #00FFB3]",
+        title=f"[bold {color}]{title}[/bold {color}]",
         subtitle=help_text,
-        border_style="#00FFB3",
+        border_style=color,
         width=70,
         padding=(1, 4),
     )
@@ -332,7 +332,7 @@ def main() -> None:
 
     # Program Code
     console.clear()
-    visuals.big_title("BOOKWORMS")
+    visuals.big_title("BOOKWORMS", "#00FF7F")
     run_menu()
 
     # Exit code
