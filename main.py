@@ -46,10 +46,10 @@ def handle_sigint(signum, frame) -> None:
 
 
 MENUBOOKS = [
-    { "name": " Books ", "topics": ["Title", "Categories", "Author"], "color": "green" },
-    { "name": "Login / Sign In", "topics": ["Login", "Sign Up"], "color": "cyan" },
-    { "name": "Admin", "topics": ["Books", "Users"], "color": "dark_orange3" },
-    { "name": "About", "topics": ["Staff", "Rules", "Made by"], "color": "magenta" }
+    { "name": " 📚 Books ", "topics": ["Title", "Categories", "Author"], "color": "green" },
+    { "name": "👤 Login / Sign In", "topics": ["Login", "Sign Up"], "color": "cyan" },
+    { "name": "🔒 Admin", "topics": ["Books", "Users"], "color": "dark_orange3" },
+    { "name": "ℹ️ About", "topics": ["Staff", "Rules", "Made by"], "color": "magenta" }
 ]
 
 
