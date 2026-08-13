@@ -33,7 +33,7 @@ from library.books import show_admin_books
 from library.users import show_admin_users
 from database.seed_books import seed_books
 from ui import visuals
-from about import about
+from library import about
 from database import database
 
 # Create console instance
