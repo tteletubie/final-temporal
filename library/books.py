@@ -64,7 +64,23 @@ def _is_show_all_query(query: str) -> bool:
 
 def _fetch_books() -> list:
     with db.get_connection() as conn:
-        rows = conn.execute("SELECT id, name, category, author, year FROM books ORDER BY name, author, year").fetchall()
+        rows = conn.execute(
+            """
+            SELECT
+                b.id,
+                b.name,
+                b.category,
+                b.author,
+                b.year,
+                bs.id_user,
+                bs.status
+            FROM books b
+            LEFT JOIN book_status bs
+                ON b.id = bs.id_book
+            ORDER BY b.name, b.author, b.year
+            """
+        ).fetchall()
+
     return rows
 
 
@@ -207,16 +223,15 @@ def _render_normal_books_view(
     default_hint: str,
 ) -> None:
     console.clear()
-
     visible_rows, start_index = _normal_visible_rows(rows, selected_index)
     query_text = query if query else "(all books)"
     top = Table.grid(padding=(0, 0))
     top.add_row(f"[bold #00FFB3]{query_label}[/bold #00FFB3] [white]{query_text}[/white]")
     top.add_row(f"[dim]{default_hint}[/dim]")
     top.add_row(f"[dim]Showing {len(visible_rows)} of {len(rows)} result(s). Press / to search.[/dim]")
-
     console.print(Align.center(Panel.fit(top, border_style="#01796F", title=title)))
-    table = Table(show_header=True, header_style="bold #00FFB3", box=box.SIMPLE_HEAVY, expand=True,)
+
+    table = Table(show_header=True, header_style="bold #00FFB3", box=box.SIMPLE_HEAVY, expand=True)
     table.add_column("Title", style="white", no_wrap=False)
     table.add_column("Category", style="white", no_wrap=False)
     table.add_column("Author", style="white", no_wrap=False)
@@ -225,38 +240,30 @@ def _render_normal_books_view(
     if rows:
         for index, row in enumerate(visible_rows):
             global_index = start_index + index
-            is_selected = (global_index == selected_index)
-            if is_selected:
-                prefix = "[bold black on #00FFB3]"
-                suffix = "[/]"
-            else:
-                prefix = ""
-                suffix = ""
-            table.add_row(
-                f"{prefix}{row['name']}{suffix}",
-                f"{prefix}{row['category']}{suffix}",
-                f"{prefix}{row['author']}{suffix}",
-                f"{prefix}{row['year']}{suffix}",
-            )
+            prefix = "[bold black on #00FFB3]" if global_index == selected_index else ""
+            suffix = "[/]" if global_index == selected_index else ""
+            table.add_row(f"{prefix}{row['name']}{suffix}", f"{prefix}{row['category']}{suffix}", f"{prefix}{row['author']}{suffix}", f"{prefix}{row['year']}{suffix}")
         if len(rows) > len(visible_rows):
-            table.add_row("...", "More books available", "Use ↑↓ to scroll","")
+            table.add_row("...", "More books available", "Use ↑↓ to scroll", "")
     else:
-        table.add_row("No books found", "-", "-", "-",)
+        table.add_row("No books found", "-", "-", "-")
 
-    actions = ["Borrow", "Back"]
+    if rows and str(rows[selected_index]["status"]).lower() == "borrowed":
+        actions = ["Unborrow Book", "Back"]
+    else:
+        actions = ["Borrow", "Back"]
+
+    selected_action_index = min(selected_action_index, len(actions) - 1)
     action_buttons = []
     for index, action in enumerate(actions):
-        if index == selected_action_index:
-            action_buttons.append(f"[bold black on #00FFB3] {action} [/]")
-        else:
-            action_buttons.append(f"[white on #1A1A1A] {action} [/]")
+        action_buttons.append(f"[bold black on #00FFB3] {action} [/]" if index == selected_action_index else f"[white on #1A1A1A] {action} [/]")
+
     body = Table.grid(padding=(0, 0))
     body.add_row(table)
     body.add_row("")
     body.add_row(Align.center("   ".join(action_buttons)))
-    console.print(Align.center(Panel.fit(body, border_style="#01796F", box=box.ROUNDED, padding=(0, 1),)))
+    console.print(Align.center(Panel.fit(body, border_style="#01796F", box=box.ROUNDED, padding=(0, 1))))
     console.print(Align.center("[dim]Press / to search | ↑↓ select book | Tab/←/→ select action | Enter confirm | q back[/dim]"))
-
 
 def _browse_books(
     title: str,
@@ -270,19 +277,16 @@ def _browse_books(
     selected_action_index = 0
 
     while True:
-        if not query:
-            rows = _fetch_books()
-        else:
-            rows = search_fn(query)
-        if rows:
-            selected_index = min(selected_index, len(rows) - 1)
-        else:
-            selected_index = 0
+        rows = _fetch_books() if not query else search_fn(query)
+        selected_index = min(selected_index, len(rows) - 1) if rows else 0
 
-        selected_action_index = min(selected_action_index, 1)
+        if rows and str(rows[selected_index]["status"]).lower() == "borrowed":
+            actions = ["Unborrow Book", "Back"]
+        else:
+            actions = ["Borrow", "Back"]
 
+        selected_action_index = min(selected_action_index, len(actions) - 1)
         _render_normal_books_view(title, query_label, query, rows, selected_index, selected_action_index, default_hint)
-
         key = _read_key()
 
         if key == "BACK":
@@ -290,18 +294,21 @@ def _browse_books(
         if key == "SEARCH":
             query = console.input("Search (Enter for all books): ").strip()
             selected_index = 0
+            selected_action_index = 0
             continue
         if key == "UP" and rows:
             selected_index = (selected_index - 1) % len(rows)
+            selected_action_index = 0
             continue
         if key == "DOWN" and rows:
             selected_index = (selected_index + 1) % len(rows)
+            selected_action_index = 0
             continue
         if key in ("TAB", "RIGHT"):
-            selected_action_index = (selected_action_index + 1) % 2
+            selected_action_index = (selected_action_index + 1) % len(actions)
             continue
         if key == "LEFT":
-            selected_action_index = (selected_action_index - 1) % 2
+            selected_action_index = (selected_action_index - 1) % len(actions)
             continue
         if key == "ENTER":
             if selected_action_index == 1:
@@ -309,8 +316,12 @@ def _browse_books(
             if not rows:
                 _show_admin_message("There are no books available.", title="Books")
                 continue
+
             selected_book = rows[selected_index]
-            if selected_action_index == 0:
+
+            if str(selected_book["status"]).lower() == "borrowed":
+                _unborrow_book_confirm(selected_book)
+            else:
                 if not username:
                     _show_admin_message("You must be logged in to borrow a book.", title="Borrow")
                     continue
@@ -453,11 +464,21 @@ def _fetch_books_with_ids() -> list:
     with db.get_connection() as conn:
         rows = conn.execute(
             """
-            SELECT id, name, category, author, year
+            SELECT
+                books.id,
+                books.name,
+                books.category,
+                books.author,
+                books.year,
+                COALESCE(book_status.status, 'available') AS status,
+                book_status.id_user
             FROM books
-            ORDER BY name, author, year
+            LEFT JOIN book_status
+                ON book_status.id_book = books.id
+            ORDER BY books.name, books.author, books.year
             """
         ).fetchall()
+
     return rows
 
 def _get_user_id(username):
@@ -496,10 +517,11 @@ def _borrow_book(book_id: int, username: str) -> tuple[bool, str]:
 
     return True, f"'{book['name']}' borrowed successfully."
 
+
 def _borrow_book_confirm(book_row, username: str) -> None:
     console.clear()
     title = str(book_row["name"])
-    panel = Panel.fit(f"Borrow [bold #00FFB3]{visuals.title}[/bold #00FFB3]?", title="Borrow Book", border_style="#01796F")
+    panel = Panel.fit(f"Borrow [bold #00FFB3]{title}[/bold #00FFB3]?", title="Borrow Book", border_style="#01796F")
     console.print(Align.center(panel))
     confirm = console.input("\nBorrow this book? (y/N): ").strip().lower()
     if confirm != "y":
@@ -521,6 +543,128 @@ def _borrow_book_confirm(book_row, username: str) -> None:
         )
 
     console.input("\nPress Enter to continue...")
+
+def _unborrow_book(book_id: int) -> tuple[bool, str]:
+    try:
+        with db.get_connection() as conn:
+            row = conn.execute("SELECT status FROM book_status WHERE id_book = ?", (book_id,)).fetchone()
+            if not row:
+                return False, "This book is already available."
+
+            conn.execute(
+                """
+                UPDATE book_status
+                SET status = 'available',
+                    id_user = NULL,
+                    date_servive = NULL,
+                    date_return = NULL
+                WHERE id_book = ?
+                """,
+                (book_id,)
+            )
+
+            conn.commit()
+
+        return True, "The book is now available."
+
+    except Exception as e:
+        return False, f"Could not unborrow the book: {e}"
+
+def _show_book_message(
+    message: str,
+    title: str = "Books"
+) -> None:
+    console.clear()
+
+    console.print(
+        Align.center(
+            Panel.fit(
+                message,
+                title=title,
+                border_style="#01796F"
+            )
+        )
+    )
+
+    console.print()
+
+    console.print(
+        Align.center(
+            "[dim]Press Enter to continue...[/dim]"
+        )
+    )
+
+    console.input()
+
+def _unborrow_book_confirm(book_row) -> None:
+    console.clear()
+
+    title = str(book_row["name"])
+
+    console.print(
+        Panel.fit(
+            f"[white]This book is currently borrowed:[/white]\n\n"
+            f"[bold #00FFB3]{title}[/bold #00FFB3]",
+            title="Borrowed Book",
+            border_style="#01796F",
+        )
+    )
+
+    console.print()
+
+    actions = ["Unborrow Book", "Back"]
+    selected_action = 0
+
+    while True:
+        buttons = []
+
+        for index, action in enumerate(actions):
+            if index == selected_action:
+                buttons.append(
+                    f"[bold black on #00FFB3] {action} [/]"
+                )
+            else:
+                buttons.append(
+                    f"[white on #1A1A1A] {action} [/]"
+                )
+
+        console.print(
+            Align.center("   ".join(buttons))
+        )
+
+        key = _read_key()
+
+        if key in ("BACK",):
+            return
+
+        if key in ("LEFT", "UP"):
+            selected_action = (selected_action - 1) % len(actions)
+
+        elif key in ("RIGHT", "DOWN", "TAB"):
+            selected_action = (selected_action + 1) % len(actions)
+
+        elif key == "ENTER":
+
+            if selected_action == 1:
+                return
+            if selected_action == 0:
+
+                success, message = _unborrow_book(
+                    int(book_row["id"])
+                )
+
+                if success:
+                    _show_book_message(
+                        message,
+                        title="Book Available"
+                    )
+                else:
+                    _show_book_message(
+                        message,
+                        title="Unborrow"
+                    )
+
+                return
 
 def _update_book(book_id: int, name: str, category: str, author: str, year: str) -> None:
     with db.get_connection() as conn:
