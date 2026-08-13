@@ -48,6 +48,10 @@ def _ensure_bootstrap_admin(cursor) -> None:
     if first_user:
         cursor.execute("UPDATE users SET role = 'admin' WHERE id = ?", (first_user[0],))
 
+def _ensure_books_borrow_count(cursor) -> None:
+    if not _column_exists(cursor, "books", "borrow_count"):
+        cursor.execute("ALTER TABLE books ADD COLUMN borrow_count INTEGER NOT NULL DEFAULT 0")
+
 def initialize_database():
     db_exists = os.path.exists(DB_FILE)
     
@@ -78,9 +82,12 @@ def initialize_database():
             name VARCHAR(150),
             category VARCHAR(100),
             author VARCHAR(150),
-            year VARCHAR(4)
+            year VARCHAR(4),
+            borrow_count INTEGER NOT NULL DEFAULT 0
         )
     """)
+
+    _ensure_books_borrow_count(cursor)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS book_status (

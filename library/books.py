@@ -64,7 +64,7 @@ def _is_show_all_query(query: str) -> bool:
 
 def _fetch_books() -> list:
     with db.get_connection() as conn:
-        rows = conn.execute(
+        return conn.execute(
             """
             SELECT
                 b.id,
@@ -72,6 +72,7 @@ def _fetch_books() -> list:
                 b.category,
                 b.author,
                 b.year,
+                b.borrow_count,
                 bs.id_user,
                 bs.status
             FROM books b
@@ -236,13 +237,14 @@ def _render_normal_books_view(
     table.add_column("Category", style="white", no_wrap=False)
     table.add_column("Author", style="white", no_wrap=False)
     table.add_column("Year", style="white", no_wrap=False)
+    table.add_column("Borrowed", style="white", no_wrap=True)
 
     if rows:
         for index, row in enumerate(visible_rows):
             global_index = start_index + index
             prefix = "[bold black on #00FFB3]" if global_index == selected_index else ""
             suffix = "[/]" if global_index == selected_index else ""
-            table.add_row(f"{prefix}{row['name']}{suffix}", f"{prefix}{row['category']}{suffix}", f"{prefix}{row['author']}{suffix}", f"{prefix}{row['year']}{suffix}")
+            table.add_row(f"{prefix}{row['name']}{suffix}", f"{prefix}{row['category']}{suffix}", f"{prefix}{row['author']}{suffix}", f"{prefix}{row['year']}{suffix}", f"{prefix}{row['borrow_count']}{suffix}")
         if len(rows) > len(visible_rows):
             table.add_row("...", "More books available", "Use ↑↓ to scroll", "")
     else:
@@ -509,6 +511,7 @@ def _borrow_book(book_id: int, username: str) -> tuple[bool, str]:
         if status and status["status"] == "borrowed":
             return False, "This book is currently borrowed."
         today = date.today().isoformat()
+        conn.execute("UPDATE books SET borrow_count = borrow_count + 1 WHERE id = ?", (book_id,))
         if status is None:
             conn.execute("INSERT INTO book_status(id_book, status, id_user, date_servive, date_return) VALUES (?, ?, ?, ?, NULL)", (book_id, "borrowed", user_id, today,))
         else:
