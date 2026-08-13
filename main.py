@@ -285,11 +285,12 @@ def run_menu() -> None:
                         authenticated_user = credentials.login()
                         if authenticated_user:
                             current_user = authenticated_user
-                            show_placeholder(
-                                f"Looged in as {current_user['username']}..."
-                            )      
+                            show_placeholder(f"Looged in as {current_user['username']}")      
                     elif topic == "Sign Up":
-                        credentials.sign_up()
+                        authenticated_user = credentials.sign_up()
+                        if authenticated_user:
+                            current_user = authenticated_user
+                            show_placeholder(f"Logged in as {current_user['username']}")
                         """
                         role, user = credentials.sign_up()
                         # Here you can add the user creation logic
