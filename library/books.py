@@ -678,6 +678,11 @@ def _update_book(book_id: int, name: str, category: str, author: str, year: str)
         )
         conn.commit()
 
+def _add_book(name: str, category: str, author: str, year: str) -> None:
+    with db.get_connection() as conn:
+        conn.execute("INSERT INTO books(name, category, author, year) VALUES (?, ?, ?, ?)", (name, category, author, year),)
+        conn.commit()
+
 
 def _delete_book(book_id: int) -> None:
     with db.get_connection() as conn:
@@ -746,7 +751,7 @@ def _render_admin_books_view(rows: list, selected_book_index: int, selected_acti
         if len(rows) > len(visible_rows): table.add_row("...", "More books available", "Use ↑↓ to scroll", "", "")
     else:table.add_row("-", "No books available", "-", "-", "-")
 
-    actions = ["Edit", "Delete", "Back"]
+    actions = ["Edit", "Delete", "Add Book", "Back"]
     action_buttons = []
     for index, action in enumerate(actions):
         if index == selected_action_index: action_buttons.append(f"[bold black on #00FFB3] {action} [/]")
@@ -784,6 +789,22 @@ def _edit_book_form(book_row) -> None:
     _update_book(int(book_row["id"]), title_value, category_value, author_value, year_value)
     _show_admin_message("Book updated successfully.")
 
+
+def _add_book_form() -> None:
+    console.clear()
+    console.print(Panel.fit("Create a new book", title="Add Book", border_style="#01796F"))
+    name = console.input("Title: ").strip()
+    category = console.input("Category: ").strip()
+    author = console.input("Author: ").strip()
+    year = console.input("Year: ").strip()
+    if not name:
+        _show_admin_message("Title is required.", title="Add Book")
+        return
+    if not year:
+        _show_admin_message("Year is required.", title="Add Book")
+        return
+    _add_book(name, category, author, year)
+    _show_admin_message("Book added successfully.", title="Add Book")
 
 def _delete_book_confirm(book_row) -> None:
     console.clear()
@@ -895,10 +916,10 @@ def show_admin_books() -> None:
             selected_book_index = 0
         elif key == "UP" and rows: selected_book_index = (selected_book_index - 1) % len(rows)
         elif key == "DOWN" and rows: selected_book_index = (selected_book_index + 1) % len(rows)
-        elif key in ("TAB", "RIGHT"): selected_action_index = (selected_action_index + 1) % 3
-        elif key == "LEFT": selected_action_index = (selected_action_index - 1) % 3
+        elif key in ("TAB", "RIGHT"): selected_action_index = (selected_action_index + 1) % 4
+        elif key == "LEFT": selected_action_index = (selected_action_index - 1) % 4
         elif key == "ENTER":
-            if selected_action_index == 2:
+            if selected_action_index == 3:
                 return
             if not rows:
                 _show_admin_message("There are no books to manage yet.")
@@ -909,3 +930,5 @@ def show_admin_books() -> None:
                 _edit_book_form(selected_book)
             elif selected_action_index == 1:
                 _delete_book_confirm(selected_book)
+            elif selected_action_index == 2:
+                _add_book_form()
