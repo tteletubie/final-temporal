@@ -35,6 +35,7 @@ from database.seed_books import seed_books
 from ui import visuals
 from library import about
 from database import database
+from library.amongus import amoung_us
 
 # Create console instance
 console = Console()
@@ -99,6 +100,8 @@ def _map_key(char: str, seq: str = "") -> str:
         return "QUIT"
     if char in ("b", "B"):
         return "BACK"
+    if char in ("k", "K"):
+        return "AMONGUS"
     return "OTHER"
 
 
@@ -221,6 +224,14 @@ def run_menu() -> None:
             active_color = current_menubooks[selected]["color"] if selected < len(current_menubooks) else "blue"
             draw_menu("🐛 MENU 🐛", group_options, active_color, selected)
             key = read_key()
+
+            if key == "AMONGUS":
+                try:
+                    amoung_us(console, read_key)
+                except Exception:
+                    # Don't let the mini-game crash the main menu; continue gracefully
+                    pass
+                continue
 
             if key == "QUIT":
                 break
