@@ -255,9 +255,7 @@ def run_menu() -> None:
 
 
 def main() -> None:
-    # ★ -> Start for first time (improve this piece of SHIT :poop:)
     database.initialize_database()
-    seed_books(database.get_connection())
 
     # Program Code
     console.clear()

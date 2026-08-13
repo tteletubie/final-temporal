@@ -1,7 +1,8 @@
 import sqlite3
 import os
 
-from .seed_books import seed_books
+from database.seed_books import seed_books
+from database.seed_users import seed_users
 
 DB_FILE = os.path.join(os.path.dirname(__file__), 'database.db')
 
@@ -96,8 +97,11 @@ def initialize_database():
     conn.commit()
     conn.close()
 
+    # Automatically seed data whenever database is initialized
+    print("Initializing database seeds...")
+    seed_books(get_connection())
+    seed_users(get_connection())
+    print("Database initialization and seeding complete.")
+
 if __name__ == '__main__':
     initialize_database()
-    print("Database initialized successfully.")
-    # Seeds data
-    seed_books(get_connection())
