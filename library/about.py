@@ -1,79 +1,23 @@
-# 1. Standard Libraries
-import os
-import sys
-
-try:
-    import termios
-    import tty
-except ImportError:  # pragma: no cover - Windows fallback
-    termios = None
-    tty = None
-
-try:
-    import msvcrt
-except ImportError:  # pragma: no cover - Unix fallback
-    msvcrt = None
-
-# 2. Third-Party Libraries
 from rich.align import Align
 from rich.console import Console
 from rich.console import Group
 from rich.panel import Panel
 
-# 3. Local Modules``
 from ui import visuals
+from ui.key_input import read_key
 
 console = Console()
 
-
-def _map_key(char: str, seq: str = "") -> str:
-    if char == "\x03":
-        raise visuals.UserCancelledError()
-    if char == "\x1b" and seq == "[A":
-        return "UP"
-    if char == "\x1b" and seq == "[B":
-        return "DOWN"
-    if char in ("\r", "\n"):
-        return "ENTER"
-    if char in ("q", "Q"):
-        return "QUIT"
-    if char in ("b", "B"):
-        return "BACK"
-    return "OTHER"
+STAFF_LINES = [
+    "\n[bold]🌟 Luis [green]Galileo [/green]Gonzalez Torres\n",
+    "[bold][red]Carlos[/red] Silva Cortes\n",
+    "[bold][magenta]Lesly [/magenta] Adilene Terrazo Rodriguez\n",
+    "[bold]Maria [purple]Fernanda[/purple] Obregon Ramirez\n",
+]
 
 
-def _read_key() -> str:
-    if os.name == "nt":
-        if msvcrt is None:
-            return "OTHER"
-
-        char = msvcrt.getwch()
-        if char == "\x03":
-            raise visuals.UserCancelledError()
-        if char in ("\x00", "\xe0"):
-            next_char = msvcrt.getwch()
-            if next_char == "H":
-                return "UP"
-            if next_char == "P":
-                return "DOWN"
-            return "OTHER"
-        return _map_key(char)
-
-    if tty is None or termios is None or not sys.stdin.isatty():
-        return "OTHER"
-
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
-
-    try:
-        tty.setraw(fd)
-        char = sys.stdin.read(1)
-        if char == "\x1b":
-            seq = sys.stdin.read(2)
-            return _map_key(char, seq)
-        return _map_key(char)
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+def _staff_group() -> Group:
+    return Group(*(Align.center(line) for line in STAFF_LINES))
 
 
 def show_staff():
@@ -81,12 +25,7 @@ def show_staff():
         console.clear()
         visuals.big_title("BOOKWORMS")
         staff_panel = Panel(
-            Group(
-                Align.center("\n[bold]🌟 Luis [green]Galileo [/green]Gonzalez Torres\n"),
-                Align.center("[bold][red]Carlos[/red] Silva Cortes\n"),
-                Align.center("[bold][magenta]Lesly [/magenta] Adilene Terrazo Rodriguez\n"),
-                Align.center("[bold]Maria [purple]Fernanda[/purple] Obregon Ramirez\n"),
-            ),
+            _staff_group(),
             title="[bold #00FFB3]BookWorm Admins [/bold #00FFB3]",
             border_style="#00FFB3",
             width=50,
@@ -94,8 +33,9 @@ def show_staff():
         console.print(Align.center(staff_panel))
         console.print(Align.center("[dim]q back | b back | Enter return[/dim]"))
 
-        key = _read_key()
-        if key in ("QUIT", "BACK", "ENTER"): return
+        key = read_key(separate_quit_back=True)
+        if key in ("QUIT", "BACK", "ENTER"):
+            return
 
 
 def show_rules():
@@ -117,8 +57,9 @@ def show_rules():
         console.print(Align.center(rules_panel))
         console.print(Align.center("[dim]q back | b back | Enter return[/dim]"))
 
-        key = _read_key()
-        if key in ("QUIT", "BACK", "ENTER"): return
+        key = read_key(separate_quit_back=True)
+        if key in ("QUIT", "BACK", "ENTER"):
+            return
 
 
 def show_made_by():
@@ -126,12 +67,7 @@ def show_made_by():
         console.clear()
         visuals.big_title("BOOKWORMS")
         credits_panel = Panel(
-            Group(
-                Align.center("\n[bold]🌟 Luis [green]Galileo [/green]Gonzalez Torres\n"),
-                Align.center("[bold][red]Carlos[/red] Silva Cortes\n"),
-                Align.center("[bold][magenta]Lesly [/magenta] Adilene Terrazo Rodriguez\n"),
-                Align.center("[bold]Maria [purple]Fernanda[/purple] Obregon Ramirez\n"),
-            ),
+            _staff_group(),
             title="[bold #00FFB3]Made By [/bold #00FFB3]",
             border_style="#00FFB3",
             width=60,
@@ -139,5 +75,6 @@ def show_made_by():
         console.print(Align.center(credits_panel))
         console.print(Align.center("[dim]q back | b back | Enter return[/dim]"))
 
-        key = _read_key()
-        if key in ("QUIT", "BACK", "ENTER"): return
+        key = read_key(separate_quit_back=True)
+        if key in ("QUIT", "BACK", "ENTER"):
+            return

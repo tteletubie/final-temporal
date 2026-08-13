@@ -58,8 +58,7 @@ def _ensure_book_status_due_column(cursor) -> None:
         try:
             cursor.execute("ALTER TABLE book_status ADD COLUMN date_due DATE")
         except Exception:
-            # Ignore if alter fails (older sqlite may require table rebuild THIS SHIT IS BY GALILEO BUT
-            # TBH IMMA NEVER FIX IT LOL)
+            # Ignore migration failure for older SQLite variants that may require table rebuilds.
             pass
 
 def initialize_database():
@@ -122,7 +121,6 @@ def initialize_database():
         )
     """)
 
-    _ensure_books_borrow_count(cursor)
     _ensure_book_status_due_column(cursor)
 
     conn.commit()
