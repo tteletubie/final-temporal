@@ -69,6 +69,10 @@ class UserCancelledError(Exception):
     """Raised when the user cancels the program with Ctrl+C."""
 
 
+class ExitApp(Exception):
+    """Raised to request a graceful application exit (show goodbye)."""
+
+
 def show_cancelled_panel(console: Console) -> None:
     """Render a consistent cancellation message before exiting."""
     # console.clear()    # Clear the screen after of the exit (the last user process is deleted!)
