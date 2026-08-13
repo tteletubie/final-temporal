@@ -17,7 +17,6 @@ books = [
     ("Facing the Flag", "Adventure", "Jules Verne", "1896"),
     ("The Diary of a Young Girl", "Biography", "Anne Frank", "1947"),
     ("Women Who Love Too Much", "Psychology", "Robin Norwood", "1985"),
-
     ("The Alchemist", "Fiction", "Paulo Coelho", "1988"),
     ("Brida", "Fiction", "Paulo Coelho", "1990"),
     ("Veronika Decides to Die", "Fiction", "Paulo Coelho", "1998"),

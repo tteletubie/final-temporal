@@ -92,6 +92,18 @@
           "check": ""
         },
         {
+          "id": "role_field",
+          "name": "role",
+          "type": "TEXT",
+          "comment": "",
+          "unique": false,
+          "increment": false,
+          "notNull": true,
+          "primary": false,
+          "default": "user",
+          "check": ""
+        },
+        {
           "id": "ZCRsXaqc2rgs_DQg3JUKJ",
           "name": "offences",
           "type": "INTEGER",

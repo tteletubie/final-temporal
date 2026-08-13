@@ -1,7 +1,16 @@
-import sqlite3
+# 1. Standard Libraries
 import os
+import sqlite3
 
-from . import seed_books as seed_books
+# 2. Third-Party Libraries
+from rich.console import Console
+
+# 3. Local Modules
+from database.seed_books import seed_books
+from database.seed_users import seed_users
+
+# Create console instance
+console = Console()
 
 DB_FILE = os.path.join(os.path.dirname(__file__), 'database.db')
 
@@ -10,7 +19,38 @@ def get_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+
+def _column_exists(cursor, table_name: str, column_name: str) -> bool:
+    columns = cursor.execute(f"PRAGMA table_info({table_name})").fetchall()
+    return any(column[1] == column_name for column in columns)
+
+
+def _ensure_users_role_column(cursor) -> None:
+    if not _column_exists(cursor, "users", "role"):
+        cursor.execute("ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'")
+
+    cursor.execute("UPDATE users SET role = 'user' WHERE role IS NULL OR role = ''")
+    cursor.execute("UPDATE users SET role = 'admin' WHERE LOWER(COALESCE(job, '')) = 'admin'")
+
+
+def _ensure_bootstrap_admin(cursor) -> None:
+    admin_exists = cursor.execute(
+        "SELECT 1 FROM users WHERE LOWER(COALESCE(role, '')) = 'admin' LIMIT 1"
+    ).fetchone()
+
+    if admin_exists:
+        return
+
+    first_user = cursor.execute(
+        "SELECT id FROM users ORDER BY id LIMIT 1"
+    ).fetchone()
+
+    if first_user:
+        cursor.execute("UPDATE users SET role = 'admin' WHERE id = ?", (first_user[0],))
+
 def initialize_database():
+    db_exists = os.path.exists(DB_FILE)
+    
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -24,9 +64,13 @@ def initialize_database():
             password_salt VARCHAR(255),
             birthday DATE,
             job VARCHAR(20),
+            role VARCHAR(20) NOT NULL DEFAULT 'user',
             offences INTEGER
         )
     """)
+
+    _ensure_users_role_column(cursor)
+    _ensure_bootstrap_admin(cursor)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS books (
@@ -63,8 +107,11 @@ def initialize_database():
     conn.commit()
     conn.close()
 
+    if not db_exists:
+        console.print("[bold cyan]⚡ [DATABASE][/bold cyan] Database not found. Initializing seeds...")
+        seed_books(get_connection())
+        seed_users(get_connection())
+        console.print("[bold green]✨ [DATABASE][/bold green] Initialization and seeding complete successfully! [bold magenta]🚀[/bold magenta]")
+
 if __name__ == '__main__':
     initialize_database()
-    print("Database initialized successfully.")
-    # Seeds data
-    seed_books(get_connection())

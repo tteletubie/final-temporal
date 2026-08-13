@@ -26,7 +26,14 @@ from rich.table import Table
 
 # 3. Local Modules
 from auth import credentials
+from library.books import show_author
+from library.books import show_title
+from library.books import show_categories
+from library.books import show_admin_books
+from library.users import show_admin_users
+from database.seed_books import seed_books
 from ui import visuals
+from about import about
 from database import database
 
 # Create console instance
@@ -40,6 +47,7 @@ def handle_sigint(signum, frame) -> None:
 MENUBOOKS = [
     { "name": " Books ", "topics": ["Title", "Categories", "Author"], "color": "green" },
     { "name": "Login / Sign In", "topics": ["Login", "Sign Up"], "color": "green" },
+    { "name": "Admin", "topics": ["Books", "Users"], "color": "green" },
     { "name": "About", "topics": ["Staff", "Rules", "Made by"], "color": "green" }
 ]
 
@@ -160,11 +168,58 @@ def run_menu() -> None:
     view = "groups"
     selected = 0
     current_group = 0
+    current_user = None
+
+    def _get_dynamic_menubooks():
+        books_copy = [group.copy() for group in MENUBOOKS]
+        
+        if current_user:
+            # Filter out Login / Sign In when logged in
+            books_copy = [g for g in books_copy if g["name"] != "Login / Sign In"]
+            # Insert Logout right AFTER About
+            logout_group = { "name": "Log Out", "topics": ["Confirm Log Out"], "color": "red" }
+            about_index = next((i for i, g in enumerate(books_copy) if g["name"] == "About"), -1)
+            if about_index != -1:
+                books_copy.insert(about_index + 1, logout_group)
+            else:
+                books_copy.append(logout_group)
+        
+        if not (current_user and current_user.get("role") == "admin"):
+            books_copy = [g for g in books_copy if g["name"] != "Admin"]
+            
+        return books_copy
+    def _get_dynamic_menubooks():
+        books_copy = [group.copy() for group in MENUBOOKS]
+        
+        if current_user:
+            # Filter out Login / Sign In when logged in
+            books_copy = [g for g in books_copy if g["name"] != "Login / Sign In"]
+            # Insert Logout right AFTER About
+            logout_group = { "name": "Log Out", "topics": ["Confirm Log Out"], "color": "red" }
+            about_index = next((i for i, g in enumerate(books_copy) if g["name"] == "About"), -1)
+            if about_index != -1:
+                books_copy.insert(about_index + 1, logout_group)
+            else:
+                books_copy.append(logout_group)
+        
+        if not (current_user and current_user.get("role") == "admin"):
+            books_copy = [g for g in books_copy if g["name"] != "Admin"]
+            
+        return books_copy
 
     while True:
+        current_menubooks = _get_dynamic_menubooks()
+
+        current_menubooks = _get_dynamic_menubooks()
+
         if view == "groups":
-            group_options = [g["name"] for g in MENUBOOKS] + ["◄ Exit"]
-            draw_menu("🐛 MENU 🐛", group_options, "blue", selected)
+            group_options = [group["name"] for group in current_menubooks] + ["◄ Exit"]
+            group_options = [group["name"] for group in current_menubooks] + ["◄ Exit"]
+            selected = min(selected, len(group_options) - 1)
+            active_color = current_menubooks[selected]["color"] if selected < len(current_menubooks) else "blue"
+            draw_menu("🐛 MENU 🐛", group_options, active_color, selected)
+            active_color = current_menubooks[selected]["color"] if selected < len(current_menubooks) else "blue"
+            draw_menu("🐛 MENU 🐛", group_options, active_color, selected)
             key = read_key()
 
             if key == "QUIT":
@@ -177,13 +232,32 @@ def run_menu() -> None:
                 if selected == len(group_options) - 1:
                     break
                 current_group = selected
+                current_group = selected
                 selected = 0
-                view = "topics"
+                
+                # If they clicked "Log Out" directly from the main menu list
+                if current_menubooks[current_group]["name"] == "Log Out":
+                    current_user = None
+                    show_placeholder("Successfully logged out!")
+                    view = "groups"
+                else:
+                    view = "topics"
+                
+                # If they clicked "Log Out" directly from the main menu list
+                if current_menubooks[current_group]["name"] == "Log Out":
+                    current_user = None
+                    show_placeholder("Successfully logged out!")
+                    view = "groups"
+                else:
+                    view = "topics"
         else:
-            topics = MENUBOOKS[current_group]["topics"]
+            topics = current_menubooks[current_group]["topics"]
+            topics = current_menubooks[current_group]["topics"]
             topic_options = topics + ["← Back"]
-            color = MENUBOOKS[current_group]["color"]
-            draw_menu(MENUBOOKS[current_group]["name"], topic_options, color, selected)
+            color = current_menubooks[current_group]["color"]
+            draw_menu(current_menubooks[current_group]["name"], topic_options, color, selected)
+            color = current_menubooks[current_group]["color"]
+            draw_menu(current_menubooks[current_group]["name"], topic_options, color, selected)
             key = read_key()
 
             if key == "QUIT":
@@ -201,15 +275,19 @@ def run_menu() -> None:
                     view = "groups"
                 else:
                     topic = topics[selected]
-                    if topic == "Login":
-                        logged_username = credentials.login()
-                        if logged_username:
-                            # Here you can add the authentication logic
+                    group_name = current_menubooks[current_group]["name"]
+                    
+                    group_name = current_menubooks[current_group]["name"]
+                    
+                    if topic == "Categories":
+                        show_categories(topic)
+                    elif topic == "Login":
+                        authenticated_user = credentials.login()
+                        if authenticated_user:
+                            current_user = authenticated_user
                             show_placeholder(
-                                f"Attempting to log in as {logged_username}..."
-                            )
-                        else:
-                            show_placeholder("Login failed. Please try again.")
+                                f"Looged in as {current_user['username']}..."
+                            )      
                     elif topic == "Sign Up":
                         credentials.sign_up()
                         """
@@ -218,13 +296,26 @@ def run_menu() -> None:
                         show_placeholder(
                             f"User {user['username']} created with role {role}"
                         )"""
+                    elif topic == "Title":
+                        show_title(current_user["username"] if current_user else None)
+                    elif topic == "Author":
+                        show_author(current_user["username"] if current_user else None)
+                    elif topic == "Staff":
+                        about.show_staff()
+                    elif topic == "Rules":
+                        about.show_rules()
+                    elif topic == "Made by":
+                        about.show_made_by()
+                    elif group_name == "Admin" and topic == "Books":
+                        show_admin_books(current_user["role"] if current_user else "user")
+                    elif group_name == "Admin" and topic == "Users":
+                        show_admin_users(current_user["role"] if current_user else "user")
                     else:
                         show_placeholder(topic)
                     selected = 0
 
 
 def main() -> None:
-    # ★ -> Start for first time (improve this piece of SHIT :poop:)
     database.initialize_database()
 
     # Program Code
